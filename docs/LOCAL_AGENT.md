@@ -107,3 +107,15 @@ All modifying/export tools require `input`, new `output`, `expectedFileHash` and
 `docx_export` takes `target: "endnote"` or `"mendeley"`. Export compatibility remains experimental; actual Word add-in acceptance has not been verified. The package includes recipient instructions and the original document.
 
 Existing citations from other managers and ordinary typed reference text are not automatically converted. The new agent interface exposes the existing citation engine; it does not bypass its conflict, tracked-change or anchor checks.
+
+## Import reference files (offline)
+
+Use `sources_import` to read RIS (`.ris`), BibTeX (`.bib`, `.bibtex`), EndNote XML, PubMed article XML, CSL JSON arrays, or CiteFlow JSON backups. No browser or online lookup is required.
+
+```sh
+node citeflow-agent.cjs --root /your/workspace sources_import < import-request.json
+```
+
+Create `import-request.json` containing `{"input":"references.ris"}`.
+
+The result contains `format`, `sources` (normalized CSL JSON), `parsed`, and `duplicates`. Review the sources, then pass a source to `docx_cite`, or use `source.upsert` operations in `docx_edit`. Importing does not insert citations or modify the manuscript. Optional `format`: `auto` (default), `ris`, `bibtex`, `xml`, or `json`. Maximum 5 MB / 5,000 records; malformed or unsupported records fail the whole import. XML supports EndNote and PubMed article exports; other XML schemas and PubMed book records are rejected. Citation metadata import does not verify the source or its support for a claim.

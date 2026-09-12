@@ -15,3 +15,5 @@ Manifest: https://www.rerioa.com/CiteFlow/agent-manifest.json
 MCP launch: `node citeflow-agent.cjs --root /your/workspace mcp`
 
 No hosted HTTP document API is provided. An agent needs permission to execute Node.js 22.13+ or connect to this local stdio MCP process. An agent limited to web browsing cannot run it. Use a local model when manuscript data must remain exclusively on the device; cloud models can receive tool outputs.
+
+Import existing references offline with `sources_import` (RIS, BibTeX, EndNote XML, PubMed XML, CSL JSON). Run `--help sources_import` for the input schema, review returned sources, then cite them with `docx_cite`.

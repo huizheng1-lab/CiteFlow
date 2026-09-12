@@ -131,3 +131,46 @@ test('collaborator packages download offline without changing the open manuscrip
   }
   expect(requests).toEqual([]);
 });
+
+test('saved library imports RIS, BibTeX and XML offline and can cite imported sources', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  await open(page);
+  await context.setOffline(true);
+  await page.locator('#tab-library').click();
+  for (const [name, text] of [
+    ['refs.ris', 'TY  - JOUR\nTI  - RIS imported source\nAU  - Smith, Jane\nPY  - 2024\nER  -'],
+    ['refs.bib', '@book{a,title={BibTeX imported source},author={Jones, Bob},year={2023}}'],
+    [
+      'refs.xml',
+      '<xml><records><record><ref-type>17</ref-type><titles><title>XML imported source</title></titles></record></records></xml>',
+    ],
+  ]) {
+    await page
+      .locator('#import-library')
+      .setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(text) });
+    await expect(page.locator('#library-panel')).toContainText(
+      text.includes('RIS imported')
+        ? 'RIS imported source'
+        : text.includes('BibTeX imported')
+          ? 'BibTeX imported source'
+          : 'XML imported source',
+    );
+  }
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('citeflow.library.v1')).length),
+  ).toBe(3);
+  await page.screenshot({ path: 'test-results/import-library.png', fullPage: true });
+  await page
+    .locator('#library .source')
+    .filter({ hasText: 'RIS imported source' })
+    .getByRole('button', { name: 'Add to document' })
+    .click();
+  await page.locator('#tab-sources').click();
+  await expect(page.locator('#sources')).toContainText('RIS imported source');
+  await page.locator('[data-paragraph="1"]').click();
+  await page.getByRole('button', { name: 'Cite here', exact: true }).click();
+  await expect(page.locator('[data-paragraph="1"]')).toContainText('(1)');
+});

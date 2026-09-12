@@ -473,7 +473,7 @@ $('#export-library').onclick = guard(() =>
 $('#import-library').onchange = guard(async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 5_000_000) throw new Error('Library backup exceeds 5 MB');
+  if (file.size > 5_000_000) throw new Error('Reference file exceeds 5 MB');
   const n = library.import(await file.text());
   drawLibrary();
   status(`Imported locally. ${n} saved references.`);

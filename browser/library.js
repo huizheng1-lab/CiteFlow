@@ -1,3 +1,4 @@
+import { importSources } from '../src/import-sources.js';
 import { normalizeSource, sourceKey, assert } from '../src/model.js';
 export class LocalLibrary {
   constructor(storage = globalThis.localStorage) {
@@ -23,12 +24,7 @@ export class LocalLibrary {
     return JSON.stringify({ schemaVersion: 1, sources: this.read() }, null, 2);
   }
   import(raw) {
-    const parsed = JSON.parse(raw);
-    assert(
-      parsed.schemaVersion === 1 && Array.isArray(parsed.sources) && parsed.sources.length <= 5000,
-      'Invalid library backup',
-    );
-    const incoming = parsed.sources.map(normalizeSource),
+    const incoming = importSources(raw).sources,
       items = this.read(),
       keys = new Set(items.map(sourceKey));
     for (const s of incoming)

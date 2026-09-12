@@ -143,3 +143,9 @@ npm start
 ```
 
 For maintainers, `scripts/publish-github.sh` verifies the existing repository and pushes committed changes to `main` using an authenticated GitHub CLI. It never creates a repository or stores a token in the source.
+
+### Import saved references
+
+In **Saved library**, choose **Import references** and select a RIS, BibTeX, EndNote XML, PubMed XML, or JSON file. Processing stays local. Existing references are kept and duplicate identifiers are skipped; invalid imports leave the library unchanged. Files may contain up to 5,000 references and must be at most 5 MB. JSON backups remain supported. XML support covers EndNote exports and PubMed article records, not arbitrary XML schemas.
+
+Browser-free agents can use `sources_import` through the standalone CLI or stdio MCP; see [the local agent guide](docs/LOCAL_AGENT.md#import-reference-files-offline).

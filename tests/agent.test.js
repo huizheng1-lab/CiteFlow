@@ -39,7 +39,7 @@ test('standalone MCP agent creates, cites, replaces, edits and exports real file
     const tools = await client.listTools();
     const guide = await client.readResource({ uri: 'citeflow://workflow' });
     assert.match(guide.contents[0].text, /Browser manipulation is not required/);
-    assert.equal(tools.tools.length, 7);
+    assert.equal(tools.tools.length, 8);
     assert.ok(tools.tools.find((t) => t.name === 'docx_cite').inputSchema.properties.anchor);
     let r = await call('docx_create', {
       output: 'draft.docx',

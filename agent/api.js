@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { createDocx, inspectDocx, editDocx, fileHash } from '../src/docx.js';
 import { exportHandoff } from '../src/handoff.js';
 import { resolveSource } from '../src/resolver.js';
+import { importSources } from '../src/import-sources.js';
 import { assert } from '../src/model.js';
 
 const path = z.string().min(1);
@@ -107,6 +108,16 @@ const guards = {
   expectedRevision: z.number().int().nonnegative(),
 };
 export const definitions = {
+  sources_import: {
+    description:
+      'Import local RIS, BibTeX, EndNote XML, PubMed XML, or CSL JSON references offline. Returns normalized, deduplicated CSL sources for review and docx_cite/docx_edit. Does not modify a manuscript.',
+    schema: z
+      .object({
+        input: path,
+        format: z.enum(['auto', 'ris', 'bibtex', 'xml', 'json']).default('auto'),
+      })
+      .strict(),
+  },
   docx_create: {
     description:
       'Create a new local Word document from plain paragraphs. Never overwrites files. Returns hash/revision for subsequent edits.',
@@ -221,6 +232,15 @@ export class FileAgent {
   async call(name, input = {}) {
     assert(Object.hasOwn(definitions, name), 'Unknown agent tool');
     const args = definitions[name].schema.parse(input);
+    if (name === 'sources_import') {
+      const file = await this.bounded(args.input);
+      const info = await stat(file);
+      assert(
+        info.isFile() && info.size <= 5_000_000,
+        'Reference file must be a regular file of at most 5 MB',
+      );
+      return importSources(await readFile(file, 'utf8'), args.format);
+    }
     if (name === 'sources_resolve') {
       assert(
         this.allowOnline,
