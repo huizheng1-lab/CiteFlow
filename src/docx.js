@@ -92,7 +92,7 @@ function richControl(root, control, entries, parameters = {}) {
     content.appendChild(p);
   }
 }
-async function loadPackage(bytes) {
+export async function loadPackage(bytes) {
   assert(bytes.length <= 25_000_000, 'DOCX input exceeds 25 MB');
   const zip = await JSZip.loadAsync(bytes);
   const entries = Object.values(zip.files);

@@ -1,5 +1,7 @@
 # CiteFlow
 
+**Collaborator handoff:** the browser now offers experimental EndNote bulk conversion and a Mendeley Desktop-field bridge. Export a separate Word copy with source records and recipient instructions. Actual Word add-in acceptance is not yet verified; see [handoff details and limits](docs/HANDOFF.md).
+
 **Document-centered citations for humans and AI agents.** A DigiMatrix Labs project.
 
 Paste a source URL, DOI, or PMID, review its metadata, and save a reusable reference. Insert and edit citation occurrences independently of their display numbers. Generate a standard reference list, switch style, and keep source identity intact.

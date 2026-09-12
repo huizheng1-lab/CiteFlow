@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { mkdir, copyFile, writeFile } from 'node:fs/promises';
+import { mkdir, copyFile, writeFile, readFile } from 'node:fs/promises';
 await mkdir('dist', { recursive: true });
 await build({
   entryPoints: ['browser/app.js', 'browser/document-worker.js'],
@@ -19,7 +19,7 @@ await build({
     'dist/build-info.json',
     JSON.stringify(
       {
-        version: '0.2.0',
+        version: JSON.parse(await readFile('package.json', 'utf8')).version,
         localDocumentProcessing: true,
         entrypoints: ['app.js', 'document-worker.js'],
       },

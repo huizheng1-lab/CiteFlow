@@ -1,6 +1,7 @@
 import { inspectDocx, editDocx } from '../src/docx.js';
 import { format } from '../src/format.js';
 import { assert } from '../src/model.js';
+import { exportHandoff } from '../src/handoff.js';
 
 /** All document bytes remain in this object. No network capability is used here. */
 export class LocalWorkspace {
@@ -53,6 +54,10 @@ export class LocalWorkspace {
   download() {
     assert(this.bytes, 'Open a Word document first');
     return this.bytes.slice();
+  }
+  exportHandoff(target) {
+    assert(this.bytes, 'Open a Word document first');
+    return exportHandoff(this.bytes, target);
   }
   close() {
     this.bytes = null;

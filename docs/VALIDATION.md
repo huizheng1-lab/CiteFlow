@@ -54,3 +54,8 @@ Unit tests cover reference-library backup/import, invalid-file recovery, duplica
 Chromium 153 was run locally against the compiled browser bundles. The generated desktop screenshot was visually inspected. This supersedes the earlier initial-build limitation on browser rendering; native Word/Google add-in limitations remain. GitHub CI additionally runs a Playwright-managed Chromium build.
 
 The static app and edge relay are deployment-ready source, not a claim that a public URL or Cloudflare Worker is already live. GitHub Pages requires a one-time repository setting before its supplied publication workflow can deploy.
+# Collaborator handoff validation
+
+Version 0.3.0: 42 Node tests and 3 Chromium browser tests passed locally, including offline EndNote and Mendeley handoff ZIP downloads. Checks cover stable source labels, citation groups and page locators, embedded metadata, field boundaries, bibliography placement, detached CiteFlow metadata, original-byte preservation, unchanged workspace state, and explicit rejection of unsupported inputs.
+
+**Not verified:** EndNote bulk formatting, Mendeley Cite legacy-field conversion, and editing/reformatting in either real Word add-in. Both exports are labeled experimental in the UI, package instructions and machine-readable report. No claim of seamless native interoperability is made. See [HANDOFF.md](HANDOFF.md) for required application acceptance tests.

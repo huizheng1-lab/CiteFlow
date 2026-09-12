@@ -1,16 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import JSZip from 'jszip';
 import { createDocx, inspectDocx } from '../../src/docx.js';
 const secret = 'PRIVATE MANUSCRIPT SENTINEL 87b52';
 async function open(page) {
   const bytes = await createDocx([secret, 'A finding.', 'Place references here.']);
-  await page
-    .locator('#file')
-    .setInputFiles({
-      name: 'confidential.docx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      buffer: Buffer.from(bytes),
-    });
+  await page.locator('#file').setInputFiles({
+    name: 'confidential.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from(bytes),
+  });
   await expect(page.locator('#preview')).toContainText(secret);
 }
 async function source(page) {
@@ -96,4 +95,39 @@ test('online lookup sends only a source identifier; relay gets no manuscript', a
   await page.locator('#lookup').click();
   await expect(page.locator('#status')).toContainText('Offline mode');
   expect(bodies).toHaveLength(1);
+});
+
+test('collaborator packages download offline without changing the open manuscript', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  await open(page);
+  await source(page);
+  await page.locator('[data-paragraph="1"]').click();
+  await page.getByRole('button', { name: 'Cite here', exact: true }).click();
+  await expect(page.locator('[data-paragraph="1"]')).toContainText('(1)');
+  await page.locator('#bibliography').click();
+  await expect(page.locator('#preview')).toContainText('References');
+  const revision = await page.locator('#revision').innerText();
+  const requests = [];
+  page.on('request', (r) => requests.push(r.url()));
+  await context.setOffline(true);
+  for (const target of ['endnote', 'mendeley']) {
+    await page.getByRole('button', { name: 'Export for collaborators', exact: true }).click();
+    await expect(page.locator('#handoff-dialog')).toContainText('Experimental compatibility');
+    await page.locator('#handoff-target').selectOption(target);
+    const waiting = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download handoff ZIP', exact: true }).click();
+    const result = await waiting;
+    const zip = await JSZip.loadAsync(await readFile(await result.path()));
+    expect(zip.file(`manuscript-${target}.docx`)).toBeTruthy();
+    expect(zip.file('original-citeflow.docx')).toBeTruthy();
+    const report = JSON.parse(await zip.file('handoff-report.json').async('string'));
+    expect(report.nativeApplicationVerified).toBe(false);
+    expect(report.citationCount).toBe(1);
+    await expect(page.locator('#revision')).toHaveText(revision);
+    await expect(page.locator('#preview')).toContainText(secret);
+  }
+  expect(requests).toEqual([]);
 });

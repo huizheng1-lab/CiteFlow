@@ -85,3 +85,6 @@ Paste its HTTPS URL in the browser's Lookup settings. No relay is configured by 
 The relay accepts only one small JSON field, rejects file uploads and extra fields, limits metadata response size, and forwards no client cookies. Worker observability is disabled in the supplied configuration and the code writes no request logs, but infrastructure providers still handle connection information. Production operators should set appropriate request/rate limits on their account.
 
 It has no persistent storage bindings. It returns only normalized citation metadata, not the fetched article body. Source existence is not claim verification: neither the browser nor relay asserts that an article supports manuscript statements.
+# Collaborator exports
+
+Use **Export for collaborators** to download a local ZIP containing an EndNote bulk-conversion document or experimental Mendeley Desktop-field bridge, the original CiteFlow file, cited source metadata, and recipient instructions. Export leaves the current document and undo history unchanged. Neither route has yet passed actual Word add-in acceptance testing. See [HANDOFF.md](HANDOFF.md).

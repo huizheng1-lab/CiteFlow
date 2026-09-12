@@ -10,6 +10,7 @@ self.onmessage = ({ data }) => {
         edit: () => workspace.edit(data.operations, data.options),
         undo: () => workspace.undo(),
         download: () => workspace.download(),
+        exportHandoff: () => workspace.exportHandoff(data.target),
         close: () => workspace.close(),
       };
       if (!methods[data.method]) throw new Error('Unknown local operation');
