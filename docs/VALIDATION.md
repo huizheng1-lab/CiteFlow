@@ -42,3 +42,15 @@ Dependency audit: `npm audit --omit=dev` reported **0 vulnerabilities** during t
 ## Repository handoff
 
 The initial build was prepared locally because repository creation was unavailable. The owner subsequently created `huizheng1-lab/CiteFlow` and designated it as the publication target. Editor-integration limitations above remain unchanged by repository publication.
+
+## Browser-local release 0.2
+
+The updated suite has **37 passing unit/integration tests** plus **2 passing real Chromium end-to-end tests**. The browser build is approximately 1.2 MB of JavaScript before transfer compression and imports no server store, resolver, service, or filesystem module.
+
+The browser tests open a synthetic private Word file, switch the browser offline, add a reference, insert/edit/remove citations and page locators, change style, place a bibliography, undo an edit, and download and re-inspect the resulting DOCX. The application issues **zero additional network requests** during the offline workflow. A separate online-lookup test inspects the relay request and confirms that it contains only the explicitly entered source URL. Offline mode prevents that request entirely.
+
+Unit tests cover reference-library backup/import, invalid-file recovery, duplicate-paragraph selection, and reference-list movement when paragraph indices shift. Edge relay tests reject file uploads, extra request fields, unlisted/private hosts, and unlisted redirect destinations. Metadata lookup fixtures do not establish live publisher connectivity.
+
+Chromium 153 was run locally against the compiled browser bundles. The generated desktop screenshot was visually inspected. This supersedes the earlier initial-build limitation on browser rendering; native Word/Google add-in limitations remain. GitHub CI additionally runs a Playwright-managed Chromium build.
+
+The static app and edge relay are deployment-ready source, not a claim that a public URL or Cloudflare Worker is already live. GitHub Pages requires a one-time repository setting before its supplied publication workflow can deploy.

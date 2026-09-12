@@ -8,3 +8,6 @@ CiteFlow uses dependencies installed by npm; original license files remain with 
 - **Cheerio**, **JSZip**, **@xmldom/xmldom**, **ipaddr.js**, **Zod**, and the **Model Context Protocol TypeScript SDK**: see each installed package's license.
 
 No third-party full-text publications are bundled. Test metadata is synthetic except the public DOI used in documented lookup examples. The package is marked private to prevent accidental npm publication. No open-source license for newly authored project code has been selected on behalf of the repository owner.
+
+- **@noble/hashes**: browser-compatible SHA-256 hashing, MIT license.
+- **esbuild** and **Playwright**: development-only build and browser-testing tools; see their package licenses.

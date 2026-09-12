@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; worker-src 'self'; connect-src https:; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>CiteFlow — citations stay with you</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="./">CiteFlow<span>by DigiMatrix Labs</span></a
+      ><span class="privacy">● DOCUMENT PROCESSING ON THIS DEVICE</span
+      ><button id="settings">Lookup settings</button>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">YOUR DOCUMENT NEVER NEEDS TO BE UPLOADED</p>
+        <h1>Better citations.<br /><em>Right here on your computer.</em></h1>
+        <p>Open a Word file, connect your sources, and download the updated manuscript.</p>
+      </section>
+      <section class="open-panel" id="drop">
+        <div>
+          <strong>Open a Word document</strong>
+          <p>Your file is read in this browser. No account, add-in, or document server.</p>
+        </div>
+        <label class="button primary"
+          >Choose .docx<input
+            id="file"
+            type="file"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            hidden
+        /></label>
+      </section>
+      <div id="status" role="status" aria-live="polite">
+        Ready. Choose a document or drop it here.
+      </div>
+      <div class="document-bar">
+        <strong id="filename">No document open</strong><span id="revision"></span
+        ><label
+          >Style
+          <select id="style" data-needs-doc>
+            <option value="vancouver">Vancouver · numbered</option>
+            <option value="apa">APA · author–year</option>
+            <option value="harvard1">Harvard · author–year</option>
+          </select></label
+        ><button id="undo" data-needs-doc>Undo</button
+        ><button id="download" class="primary" data-needs-doc>Download Word file</button
+        ><button id="close" data-needs-doc>Close file</button>
+      </div>
+      <section class="workspace">
+        <div class="manuscript">
+          <div class="section-head">
+            <h2>Manuscript</h2>
+            <span class="badge">LOCAL PREVIEW</span>
+          </div>
+          <p class="hint">
+            Select text to cite after it, or click a paragraph to cite at its end. This is a text
+            preview; your original Word layout is preserved in the downloaded file.
+          </p>
+          <p id="insertion" class="insertion">Choose an insertion point in the document.</p>
+          <div id="preview" class="paper">
+            <p class="empty">Your manuscript will appear here.</p>
+          </div>
+        </div>
+        <aside>
+          <div class="tabs">
+            <button id="tab-sources" class="active">Sources</button
+            ><button id="tab-citations">Citations</button
+            ><button id="tab-library">Local library</button>
+          </div>
+          <div id="sources-panel">
+            <label for="url">Add a reference from the web</label>
+            <div class="search">
+              <input id="url" placeholder="DOI, source URL, or PMID:123" /><button id="lookup">
+                Find →
+              </button>
+            </div>
+            <p class="hint">
+              Only the identifier you enter is sent for lookup. Manuscript text is never included.
+            </p>
+            <div id="candidate" hidden></div>
+            <button id="manual" data-needs-doc>＋ Enter reference manually</button>
+            <div id="sources"></div>
+          </div>
+          <div id="citations-panel" hidden>
+            <p class="hint">
+              Change sources or page numbers for an occurrence, or remove it. Display numbers update
+              automatically.
+            </p>
+            <div id="citations"></div>
+            <button id="refresh" data-needs-doc>Refresh after local edits</button>
+          </div>
+          <div id="library-panel" hidden>
+            <p class="hint">
+              Saved references live in this browser’s local storage. Export a backup before clearing
+              browser data or changing devices.
+            </p>
+            <div class="actions">
+              <button id="export-library">Export library</button
+              ><label class="button"
+                >Import backup<input id="import-library" type="file" accept=".json" hidden /></label
+              ><button id="clear-library">Clear library</button>
+            </div>
+            <div id="library"></div>
+          </div>
+          <div class="reference-options">
+            <h2>Reference list</h2>
+            <p class="hint">
+              Place it at the end or after the selected paragraph. Existing lists move to the new
+              position.
+            </p>
+            <button id="bibliography" data-needs-doc>Place at end</button
+            ><button id="bibliography-here" data-needs-doc>Place after selection</button>
+          </div>
+        </aside>
+      </section>
+    </main>
+    <footer>
+      Documents stay in memory until you close this page. Download to save changes. Online reference
+      services receive lookup identifiers and normal connection information. No cloud AI receives
+      your manuscript.
+    </footer>
+    <dialog id="editor">
+      <h2 id="editor-title">Reference details</h2>
+      <div id="fields"></div>
+      <div class="actions">
+        <button id="cancel-edit">Cancel</button><button id="save-edit" class="primary">Save</button>
+      </div>
+    </dialog>
+    <dialog id="settings-dialog">
+      <h2>Online reference lookup</h2>
+      <p>
+        DOIs can be retrieved directly from Crossref. Some websites block browser access. An
+        optional edge relay can retrieve their public metadata using only a source URL.
+      </p>
+      <label for="relay">Optional metadata relay (HTTPS)</label
+      ><input id="relay" placeholder="https://your-metadata-worker.workers.dev/" />
+      <p class="hint">
+        Only use a service you trust. It receives the source URL, never your Word file. Leave blank
+        for direct lookup only.
+      </p>
+      <label class="check"
+        ><input id="offline" type="checkbox" /> Offline mode: disable all reference lookups</label
+      >
+      <div class="actions">
+        <button id="cancel-settings">Cancel</button
+        ><button id="save-settings" class="primary">Save settings</button>
+      </div>
+    </dialog>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

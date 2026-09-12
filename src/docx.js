@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
-import { createHash } from 'node:crypto';
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 import { assert, apply, newDocument, validate } from './model.js';
 import { format } from './format.js';
 import { richRuns } from './rich-text.js';
@@ -17,7 +18,7 @@ const escape = (s) =>
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
-export const fileHash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+export const fileHash = (bytes) => bytesToHex(sha256(bytes));
 function tag(control) {
   return attr(all(control, 'tag')[0], 'val');
 }
@@ -127,6 +128,11 @@ export async function inspectDocx(bytes) {
     document: doc,
     fileHash: fileHash(bytes),
     physicalOrder: ids,
+    paragraphs: all(root, 'p').map((p, index) => ({
+      index,
+      text: text(p),
+      managed: hasManagedAncestor(p),
+    })),
     issues: [
       ...validate(doc),
       ...ids.filter((x, i) => ids.indexOf(x) !== i).map((id) => ({ code: 'duplicate-anchor', id })),
@@ -139,13 +145,38 @@ export async function inspectDocx(bytes) {
     ],
   };
 }
-function insertAfterText(root, needle, node) {
+function hasManagedAncestor(p) {
+  for (let a = p.parentNode; a; a = a.parentNode)
+    if (a.localName === 'sdt' && tag(a)?.startsWith('citeflow:')) return true;
+  return false;
+}
+function insertAfterText(root, anchor, node) {
+  const needle = anchor?.exactText;
+  let precise;
+  if (Number.isInteger(anchor?.paragraphIndex)) {
+    const p = all(root, 'p')[anchor.paragraphIndex];
+    assert(p && !hasManagedAncestor(p), 'Paragraph is missing or is a managed reference list', 409);
+    assert(
+      text(p) === anchor.paragraphText,
+      'Paragraph text changed; select the insertion point again',
+      409,
+    );
+    assert(
+      Number.isInteger(anchor.endOffset) &&
+        anchor.endOffset > 0 &&
+        anchor.endOffset <= text(p).length,
+      'Select an insertion point after some paragraph text',
+    );
+    const ts = all(p, 't');
+    precise = { ts, end: anchor.endOffset };
+  }
+
   assert(
-    typeof needle === 'string' && needle.length > 0,
+    precise || (typeof needle === 'string' && needle.length > 0),
     'Citation insertion needs anchor.exactText',
   );
   const matches = [];
-  for (const p of all(root, 'p')) {
+  for (const p of precise ? [] : all(root, 'p')) {
     const ts = all(p, 't');
     const full = ts.map((t) => t.textContent).join('');
     let from = 0,
@@ -155,6 +186,7 @@ function insertAfterText(root, needle, node) {
       from = pos + 1;
     }
   }
+  if (precise) matches.push(precise);
   assert(matches.length === 1, 'Text anchor must match exactly once; found ' + matches.length, 409);
   const { ts, end } = matches[0];
   let offset = 0;
@@ -230,15 +262,23 @@ export async function editDocx(
   const results = [];
   for (const op of operations) {
     if (op.type === 'bibliography.place') {
+      let target;
+      if (op.anchor) {
+        const matches = all(root, 'p').filter(
+          (p, i) =>
+            (!Number.isInteger(op.anchor.paragraphIndex) || i === op.anchor.paragraphIndex) &&
+            text(p) === op.anchor.exactParagraph &&
+            !hasManagedAncestor(p),
+        );
+        assert(matches.length === 1, 'Bibliography paragraph anchor must match once', 409);
+        target = matches[0];
+      }
       const existing = controls(root).filter((c) => tag(c) === 'citeflow:bibliography');
       for (const c of existing) c.parentNode.removeChild(c);
-      const c = control(root, 'citeflow:bibliography', 'References', true);
-      const body = all(root, 'body')[0];
-      if (op.anchor) {
-        const p = all(root, 'p').filter((p) => text(p) === op.anchor.exactParagraph);
-        assert(p.length === 1, 'Bibliography paragraph anchor must match once', 409);
-        p[0].parentNode.insertBefore(c, p[0].nextSibling);
-      } else body.insertBefore(c, all(body, 'sectPr')[0] || null);
+      const c = control(root, 'citeflow:bibliography', 'References', true),
+        body = all(root, 'body')[0];
+      if (target) target.parentNode.insertBefore(c, target.nextSibling);
+      else body.insertBefore(c, all(body, 'sectPr')[0] || null);
       results.push({ placed: true });
       continue;
     }
@@ -249,7 +289,7 @@ export async function editDocx(
     if (op.type === 'citation.insert')
       insertAfterText(
         root,
-        op.anchor?.exactText,
+        op.anchor,
         control(root, 'citeflow:citation:' + result.citationId, '[citation]'),
       );
     if (op.type === 'citation.remove') {
@@ -312,7 +352,7 @@ export async function editDocx(
   }
   zip.file('[Content_Types].xml', out(types));
   return {
-    bytes: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }),
+    bytes: await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }),
     document: doc,
     results,
     rendered,
@@ -332,5 +372,5 @@ export async function createDocx(paragraphs = ['Start writing here.']) {
     'word/document.xml',
     `<w:document xmlns:w="${W}"><w:body>${paragraphs.map((p) => `<w:p><w:r><w:t xml:space="preserve">${escape(p)}</w:t></w:r></w:p>`).join('')}<w:sectPr/></w:body></w:document>`,
   );
-  return z.generateAsync({ type: 'nodebuffer' });
+  return z.generateAsync({ type: 'uint8array' });
 }

@@ -24,3 +24,13 @@ CiteFlow separates **sources**, **citation occurrences**, and **reference-list v
 6. Optional evidence passages and claim-support review, kept separate from metadata verification.
 
 Automatic background updating, marketplace distribution, a multi-user SaaS, and arbitrary source discovery are not silently assumed to be implemented.
+
+## Browser-local architecture (0.2)
+
+`browser/app.js` is the static interface. It never receives a cloud document ID or calls the legacy document service. `browser/document-worker.js` owns the in-memory `LocalWorkspace`, which reuses the same DOCX and CSL engine as local agents. Shared SHA-256 and UUID helpers work in browsers and Node. Formatting assets are imported from pinned package JSON files without loading the Citation.js server runtime.
+
+The preview includes paragraph indices and text. Browser selections produce a paragraph index, exact expected paragraph text, and UTF-16 insertion offset, checked against the opened file. This distinguishes identical paragraphs without searching for a guessed occurrence.
+
+`browser/library.js` persists only explicitly saved reference records in browser localStorage. `browser/lookup.js` is the sole external lookup boundary and accepts only an identifier and optional relay URL. It has no reference to the worker's document bytes. `edge/worker.js` is an optional allowlisted public-metadata service with no document endpoint or storage binding.
+
+`npm run build:browser` creates a static `dist/` with no Node server requirement. Browser tests edit/download Word documents while the browser is offline and inspect every application request for document content.

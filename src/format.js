@@ -1,8 +1,7 @@
 import CSL from 'citeproc';
-import { plugins } from '@citation-js/core';
-import '@citation-js/plugin-csl';
+import templates from '@citation-js/plugin-csl/lib-mjs/styles.json' with { type: 'json' };
+import locales from '@citation-js/plugin-csl/lib-mjs/locales.json' with { type: 'json' };
 import { assert, hash, validate } from './model.js';
-const { templates, locales } = plugins.config.get('@csl');
 export const styles = ['vancouver', 'apa', 'harvard1'];
 export function format(doc, output = 'text') {
   assert(styles.includes(doc.style), 'Unsupported style');
@@ -12,10 +11,10 @@ export function format(doc, output = 'text') {
     'Broken citation links',
     409,
   );
-  const template = templates.get(doc.style);
+  const template = templates[doc.style];
   const engine = new CSL.Engine(
     {
-      retrieveLocale: (lang) => locales.get(lang) || locales.get('en-US'),
+      retrieveLocale: (lang) => locales[lang] || locales['en-US'],
       retrieveItem: (sid) => structuredClone(doc.sources[sid]),
     },
     template,
@@ -32,7 +31,8 @@ export function format(doc, output = 'text') {
       properties: { noteIndex: 0 },
     };
     const [, updates] = engine.processCitationCluster(citation, previous, []);
-    for (const [index, text] of updates) rendered[doc.citations[index].id] = text;
+    for (const [index, text] of updates)
+      rendered[doc.citations[index].id] = (doc.citations[index].leadingSpace ? ' ' : '') + text;
     previous.push([c.id, 0]);
   }
   const b = doc.citations.length ? engine.makeBibliography() : false;

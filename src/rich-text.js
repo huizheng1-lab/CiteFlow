@@ -1,4 +1,4 @@
-import { load } from 'cheerio';
+import { load } from 'cheerio/slim';
 const escape = (s) =>
   String(s)
     .replaceAll('&', '&amp;')

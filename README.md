@@ -6,7 +6,24 @@ Paste a source URL, DOI, or PMID, review its metadata, and save a reusable refer
 
 This is an **initial working release**, not a production-certified Word or Google Docs add-in. The local citation engine, HTTP API, CLI, MCP transport, and headless DOCX editor have automated tests. Native editor integrations are previews and need live client testing.
 
-## Start locally
+## Browser app: documents stay on your computer
+
+**Version 0.2 adds a browser-local Word citation editor.** Open a `.docx` without uploading it, select citation positions, add/remove/edit citations, place a reference list, and download the updated file. Citation processing runs in a Web Worker on your device. Saved references stay in browser storage; document bytes stay in memory until downloaded or closed.
+
+Online lookup sends only an explicitly entered DOI or source URL. An optional edge worker handles metadata-only lookups for sites that block direct browser access. Offline mode disables lookups entirely. There are no cloud AI calls.
+
+See [browser usage, privacy, and hosting](docs/BROWSER.md). To build the static app:
+
+```bash
+npm ci
+npm run build:browser
+```
+
+Host `dist/` on HTTPS. Visitors need **no Word add-in and no personal server**. The included **Publish browser app** GitHub Actions workflow deploys to Pages after Pages has been enabled in repository settings. The app is not automatically online merely because its source is on GitHub.
+
+The commands below describe the retained **local agent/server workspace**, which is separate from the new browser-local app.
+
+## Optional local agent/server workspace
 
 Requires Node.js **22.13+** (Node 24 recommended).
 
@@ -20,7 +37,7 @@ Open **http://127.0.0.1:3210**. Create a manuscript, paste a source URL, and sav
 
 Data is stored in `data/citeflow.sqlite`. To choose another location, set `CITEFLOW_DB`. Back up the SQLite database with SQLite backup tooling; export a portable JSON snapshot for manuscript exchange. Resolving a URL caches metadata for subsequent offline use. Offline formatting needs no network.
 
-The browser workspace manages reference metadata and citation order. It does **not** edit manuscript prose. Use the Word/DOCX or Google Docs adapters for insertion into manuscripts.
+The legacy server workspace at port 3210 manages reference metadata and citation order. The new static browser app opens local Word files and inserts citations into them. Neither app is a full prose editor.
 
 ## Included
 

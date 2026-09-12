@@ -1,0 +1,7 @@
+{
+  "name": "citeflow-metadata",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": false },
+  "vars": {"ALLOWED_SOURCE_HOSTS":"api.crossref.org,pubmed.ncbi.nlm.nih.gov,pmc.ncbi.nlm.nih.gov,www.nature.com,nature.com,journals.plos.org"}
+}

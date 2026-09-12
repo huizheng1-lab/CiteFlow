@@ -1,12 +1,13 @@
-import { randomUUID, createHash } from 'node:crypto';
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 export class Fault extends Error {
   constructor(message, status = 400) {
     super(message);
     this.status = status;
   }
 }
-export const id = () => randomUUID();
-export const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+export const id = () => globalThis.crypto.randomUUID();
+export const hash = (value) => bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(value))));
 export const clone = (value) => structuredClone(value);
 export function assert(ok, message, status = 400) {
   if (!ok) throw new Fault(message, status);
@@ -137,6 +138,7 @@ export function apply(doc, op) {
     }
     case 'citation.insert': {
       const c = { id: op.id || id(), items: checkItems(doc, op.items) };
+      if (op.leadingSpace === true) c.leadingSpace = true;
       assert(
         typeof c.id === 'string' &&
           /^[A-Za-z0-9_-]{1,100}$/.test(c.id) &&
