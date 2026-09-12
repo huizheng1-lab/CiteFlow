@@ -1,5 +1,7 @@
 # CiteFlow agent interface
 
+For direct local Word files, prefer the new [standalone file agent](LOCAL_AGENT.md): seven typed CLI/MCP tools, a workspace boundary, no database, offline by default, and collaborator exports. The older database/HTTP interfaces below remain available. Tool names overlap, so configure one interface per MCP server name.
+
 All document mutations refer to stable source and occurrence IDs. Never identify a source by a displayed number. Source lookup only verifies bibliographic metadata, not evidence support.
 
 ## Transports

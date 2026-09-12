@@ -32,3 +32,4 @@ for (const name of ['index.html', 'style.css']) await copyFile('browser/' + name
 await copyFile('browser/_headers', 'dist/_headers');
 await copyFile('THIRD_PARTY_NOTICES.md', 'dist/THIRD_PARTY_NOTICES.txt');
 console.log('Static browser application built in dist/');
+await import('./build-agent.js');

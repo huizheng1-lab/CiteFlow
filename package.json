@@ -1,6 +1,6 @@
 {
   "name": "@digimatrix-labs/citeflow",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Document-centered citations for humans and AI agents",
@@ -9,7 +9,8 @@
   },
   "bin": {
     "citeflow": "./src/cli.js",
-    "citeflow-mcp": "./src/mcp.js"
+    "citeflow-mcp": "./src/mcp.js",
+    "citeflow-agent": "./agent/main.js"
   },
   "scripts": {
     "start": "node src/server.js",
@@ -17,7 +18,9 @@
     "mcp": "node src/mcp.js",
     "build:browser": "node scripts/build-browser.js",
     "preview:browser": "node scripts/preview-browser.js",
-    "test:browser": "npm run build:browser && playwright test"
+    "test:browser": "npm run build:browser && playwright test",
+    "build:agent": "node scripts/build-agent.js",
+    "agent": "node agent/main.js"
   },
   "dependencies": {
     "@citation-js/core": "0.7.21",

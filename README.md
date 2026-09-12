@@ -1,5 +1,7 @@
 # CiteFlow
 
+**Agents without a browser:** download the standalone [local agent](https://www.rerioa.com/CiteFlow/citeflow-agent.cjs), then connect through stdio MCP or JSON CLI. Seven typed tools cover creation, inspection, citation insertion/replacement, batch edits, URL lookup and collaborator export. No web server or npm install is needed for the bundle. See [setup and privacy](docs/LOCAL_AGENT.md).
+
 **Collaborator handoff:** the browser now offers experimental EndNote bulk conversion and a Mendeley Desktop-field bridge. Export a separate Word copy with source records and recipient instructions. Actual Word add-in acceptance is not yet verified; see [handoff details and limits](docs/HANDOFF.md).
 
 **Document-centered citations for humans and AI agents.** A DigiMatrix Labs project.
