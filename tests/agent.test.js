@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import JSZip from 'jszip';
+import { explainError } from '../agent/discovery.js';
 execFileSync(process.execPath, ['scripts/build-agent.js']);
 const bundle = resolve('dist/citeflow-agent.cjs');
 const source = {
@@ -36,6 +37,8 @@ test('standalone MCP agent creates, cites, replaces, edits and exports real file
   try {
     await client.connect(transport);
     const tools = await client.listTools();
+    const guide = await client.readResource({ uri: 'citeflow://workflow' });
+    assert.match(guide.contents[0].text, /Browser manipulation is not required/);
     assert.equal(tools.tools.length, 7);
     assert.ok(tools.tools.find((t) => t.name === 'docx_cite').inputSchema.properties.anchor);
     let r = await call('docx_create', {
@@ -97,6 +100,40 @@ test('standalone MCP agent creates, cites, replaces, edits and exports real file
     await client.close();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('downloaded agent teaches its schemas and runs its offline example', async () => {
+  const help = spawnSync(process.execPath, [bundle, '--help', 'docx_cite'], {
+    encoding: 'utf8',
+    timeout: 10000,
+  });
+  assert.equal(help.status, 0, help.stderr);
+  const schema = JSON.parse(help.stdout).docx_cite.inputSchema;
+  assert.ok(schema.required.includes('expectedFileHash'));
+  assert.ok(schema.properties.anchor.anyOf);
+  assert.deepEqual(
+    JSON.parse(await readFile('dist/agent-tools.json', 'utf8')).docx_cite.inputSchema,
+    schema,
+  );
+  const doctor = spawnSync(process.execPath, [bundle, 'doctor'], {
+    encoding: 'utf8',
+    timeout: 10000,
+  });
+  assert.equal(JSON.parse(doctor.stdout).browserRequired, false);
+  const example = spawnSync(process.execPath, ['dist/agent-example.mjs'], {
+    encoding: 'utf8',
+    timeout: 15000,
+  });
+  assert.equal(example.status, 0, example.stderr);
+  const result = JSON.parse(example.stdout);
+  assert.equal(result.success, true);
+  assert.equal(result.citationCount, 1);
+  await rm(resolve(result.output, '..'), { recursive: true, force: true });
+  const failure = explainError(
+    new Error('Private, local, and reserved network destinations are blocked'),
+  );
+  assert.equal(failure.code, 'SOURCE_NETWORK_POLICY');
+  assert.match(failure.nextStep, /Offline citation editing still works/);
 });
 test('standalone CLI enforces workspace, guards, and no overwrite including symlinks', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'cf-cli-'));

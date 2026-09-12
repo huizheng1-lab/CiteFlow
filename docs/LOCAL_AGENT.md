@@ -1,5 +1,23 @@
 # CiteFlow without a browser
 
+## Start here
+
+This is a real CLI/MCP interface, not browser automation. Download the agent below, then run:
+
+```sh
+node citeflow-agent.cjs --root /path/to/manuscripts doctor
+node citeflow-agent.cjs --help docx_inspect
+node citeflow-agent.cjs --help docx_cite
+```
+
+`--help TOOL` and `--schema TOOL` return the complete JSON input schema without reading stdin. `--schema` returns all tools. The same schemas are available at https://www.rerioa.com/CiteFlow/agent-tools.json without running Node.
+
+**Runnable offline example:** download https://www.rerioa.com/CiteFlow/agent-example.mjs into the same directory as `citeflow-agent.cjs`, then run `node agent-example.mjs`. It creates a new temporary workspace, creates a document, inserts a citation using synthetic metadata, and verifies it through the CLI. It prints the resulting file path and never overwrites existing manuscripts. Use this to establish that the runtime works before testing real references.
+
+**If URL lookup fails:** a sandbox may resolve public hostnames to addresses rejected by CiteFlow's private-network guard. This affects `sources_resolve`, not citation editing. Obtain bibliographic metadata using another available trusted research tool, review it, then pass the CSL source object to `docx_cite`. Keep the network protection enabled. A lookup failure is not evidence that browser manipulation is required.
+
+MCP clients can read `citeflow://workflow` for this workflow and discover parameter schemas with `tools/list`.
+
 Download [citeflow-agent.cjs](https://www.rerioa.com/CiteFlow/citeflow-agent.cjs) and its [SHA-256 checksum](https://www.rerioa.com/CiteFlow/citeflow-agent.sha256). Run it with Node.js 22.13 or newer. No npm install, Word add-in, browser automation, SQLite database or HTTP server is needed for this standalone bundle. From source, use `npm ci` followed by `npm run build:agent`.
 
 ## Connect an MCP agent

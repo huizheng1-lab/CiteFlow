@@ -1,14 +1,39 @@
 {
   "name": "CiteFlow Local Agent",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "download": "https://www.rerioa.com/CiteFlow/citeflow-agent.cjs",
   "checksum": "https://www.rerioa.com/CiteFlow/citeflow-agent.sha256",
   "instructions": "https://www.rerioa.com/CiteFlow/AGENT_GUIDE.md",
   "runtime": "Node.js 22.13 or newer",
   "cli": "node citeflow-agent.cjs --root WORKSPACE TOOL < request.json",
-  "mcp": { "transport": "stdio", "command": "node", "args": ["/absolute/path/citeflow-agent.cjs", "--root", "/absolute/path/workspace", "mcp"] },
-  "tools": ["docx_create", "docx_inspect", "docx_edit", "docx_cite", "docx_replace_source", "docx_export", "sources_resolve"],
+  "mcp": {
+    "transport": "stdio",
+    "command": "node",
+    "args": [
+      "/absolute/path/citeflow-agent.cjs",
+      "--root",
+      "/absolute/path/workspace",
+      "mcp"
+    ]
+  },
+  "tools": [
+    "docx_create",
+    "docx_inspect",
+    "docx_edit",
+    "docx_cite",
+    "docx_replace_source",
+    "docx_export",
+    "sources_resolve"
+  ],
   "network": "Disabled by default. --allow-online enables explicit source metadata lookup only.",
   "privacy": "Document processing runs on the agent host. Tool results are visible to the calling agent; use a local agent for device-only privacy.",
-  "collaborator_exports": { "endnote": "Experimental bulk conversion", "mendeley": "Experimental Desktop field bridge", "native_application_verified": false }
+  "collaborator_exports": {
+    "endnote": "Experimental bulk conversion",
+    "mendeley": "Experimental Desktop field bridge",
+    "native_application_verified": false
+  },
+  "quickstart": "https://www.rerioa.com/CiteFlow/AGENTS.md",
+  "tool_schemas": "https://www.rerioa.com/CiteFlow/agent-tools.json",
+  "runnable_example": "https://www.rerioa.com/CiteFlow/agent-example.mjs",
+  "diagnostics": "node citeflow-agent.cjs --root WORKSPACE doctor"
 }

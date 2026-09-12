@@ -62,3 +62,6 @@ Version 0.3.0: 42 Node tests and 3 Chromium browser tests passed locally, includ
 # Local agent validation
 
 Version 0.4.0 adds a standalone bundle tested from a directory outside the source checkout, with no npm installation there. A real stdio MCP client discovers the seven typed tools and creates, inspects, cites, replaces, reformats, removes, and exports a manuscript. CLI integration tests verify no overwrite, stale guards, workspace boundaries and symlink escape rejection. Online lookup is opt-in; the default-disabled path is tested. Cloud agents can see tool output; this is not a guarantee of device-only privacy with a remote model.
+# Agent discovery validation
+
+Version 0.4.1: 45 Node tests and 3 Chromium tests passed. The standalone bundle's per-tool help exposes the same schemas as the published JSON, doctor confirms browser-free use, the downloadable example performs real citation insertion offline, and MCP serves workflow instructions. Network-policy failures now include an actionable offline metadata route; the DNS protection itself is unchanged.
