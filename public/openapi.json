@@ -1,0 +1,85 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CiteFlow Agent API",
+    "version": "0.1.0",
+    "description": "Single-workspace citation service. See docs/AGENT_API.md for operation schemas."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3210"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/call": {
+      "post": {
+        "operationId": "citeflowCall",
+        "summary": "Perform a structured citation operation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["method", "args"],
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "documents.list",
+                      "documents.create",
+                      "documents.inspect",
+                      "documents.edit",
+                      "documents.restore",
+                      "documents.import",
+                      "documents.format",
+                      "documents.compute",
+                      "sources.resolve",
+                      "library.list",
+                      "google.plan",
+                      "google.edit"
+                    ]
+                  },
+                  "args": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Missing or invalid bearer token"
+          },
+          "403": {
+            "description": "Host/origin rejected"
+          },
+          "409": {
+            "description": "Revision, identity, or anchor conflict"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

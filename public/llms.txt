@@ -1,0 +1,19 @@
+# CiteFlow
+
+Citation management for humans and AI agents, by DigiMatrix Labs.
+
+- OpenAPI: /openapi.json
+- HTTP: POST /api/call, bearer authentication, {method,args}
+- CLI: node src/cli.js METHOD < args.json
+- MCP stdio: node src/mcp.js
+- MCP resource: citeflow://operations
+
+Resolve a URL/DOI/PMID, review metadata and provenance, save the source, insert an occurrence, and format the document. Always use stable source IDs, expectedRevision, and a unique requestId for edit transactions. Display numbers are never source IDs.
+
+Methods: documents.list, documents.create, documents.inspect, documents.edit, documents.restore, documents.import, documents.format, sources.resolve, library.list, google.plan, google.edit.
+
+Word without a browser: CLI docx.inspect/docx.edit or MCP docx_inspect/docx_edit. Requires an inspected file hash and writes a new output file.
+
+Google edits require an authorized OAuth token, a matching citation snapshot, and a fresh Google revision. Save returned metadata after a confirmed write. Do not blindly retry an uncertain cloud write.
+
+Citation metadata verification is not claim-support verification. Never invent missing authors, dates, identifiers, or evidence. Direct PDF extraction and automatic Word↔Google conversion are not implemented in this release.

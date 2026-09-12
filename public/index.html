@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CiteFlow — citations, connected</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">CiteFlow<span>by DigiMatrix Labs</span></a>
+      <div class="header-right">
+        <span class="badge">LOCAL WORKSPACE</span><button id="connect">Server access</button>
+      </div>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">YOUR SOURCES. YOUR MANUSCRIPT.</p>
+        <h1>Keep the thought.<br /><em>We’ll handle the citation.</em></h1>
+        <p>Add a link, collect a source, and keep your references connected.</p>
+      </section>
+      <section class="workspace">
+        <aside>
+          <h2>Manuscripts</h2>
+          <div id="documents"></div>
+          <button id="new" class="wide">＋ New manuscript</button>
+          <hr />
+          <label for="style">Citation style</label
+          ><select id="style">
+            <option value="vancouver">Vancouver · numbered</option>
+            <option value="apa">APA · author–year</option>
+            <option value="harvard1">Harvard · author–year</option></select
+          ><button id="export" class="wide">Export portable library</button
+          ><label class="import"
+            >Import document JSON<input id="import" type="file" accept=".json"
+          /></label>
+          <p class="small">
+            Word and Google Docs adapters are included in the source package. This workspace manages
+            citation order; it does not edit manuscript prose.
+          </p>
+        </aside>
+        <div class="work">
+          <div class="workhead">
+            <div>
+              <p class="eyebrow">CURRENT MANUSCRIPT</p>
+              <h2 id="title">Choose or create a manuscript</h2>
+            </div>
+            <span id="revision" class="badge"></span>
+          </div>
+          <form id="resolve">
+            <label for="url">Add a source</label>
+            <div class="search">
+              <input id="url" placeholder="Paste a URL, DOI, or PMID:123456" required /><button
+                class="primary"
+              >
+                Find source →
+              </button>
+            </div>
+          </form>
+          <div id="candidate" hidden></div>
+          <div class="toolbar">
+            <button id="manual">＋ Enter source manually</button
+            ><button id="undo">Undo last change</button>
+          </div>
+          <div role="status" aria-live="polite" id="status">Ready when you are.</div>
+          <div class="tabs">
+            <button id="tab-sources" class="active">Sources <span id="source-count">0</span></button
+            ><button id="tab-citations">
+              In-text citations <span id="citation-count">0</span>
+            </button>
+          </div>
+          <div id="sources"></div>
+          <div id="citations" hidden></div>
+          <section class="references">
+            <div class="workhead">
+              <h2>Reference list</h2>
+              <button id="copy">Copy text</button>
+            </div>
+            <p class="small">
+              Only cited sources appear here. Changing their order updates numbering.
+            </p>
+            <div id="bibliography" class="reference-text"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <footer>
+      Source metadata is cached locally. Evidence support is never assumed from a citation.
+    </footer>
+    <dialog id="editor">
+      <form method="dialog" id="edit-form">
+        <h2 id="edit-title">Source details</h2>
+        <div id="fields"></div>
+        <details>
+          <summary>Advanced · CSL JSON</summary>
+          <textarea id="json" rows="12" spellcheck="false"></textarea
+          ><button id="load-json" type="button">Load JSON into form</button>
+        </details>
+        <div class="toolbar">
+          <button value="cancel">Cancel</button
+          ><button id="save-json" type="button" class="primary">Save source</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

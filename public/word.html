@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CiteFlow for Word</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  </head>
+  <body>
+    <main>
+      <a class="brand" href="/">CiteFlow</a>
+      <p class="small">Word integration · preview</p>
+      <label for="token">Server token</label
+      ><input id="token" type="password" autocomplete="off" /><label for="source"
+        >Source URL, DOI, or PMID</label
+      ><input id="source" placeholder="https://doi.org/…" />
+      <div class="toolbar"><button id="lookup" class="primary">Find source</button></div>
+      <p id="candidate" class="small"></p>
+      <button id="insert" disabled>Insert citation at cursor</button><label for="style">Style</label
+      ><select id="style">
+        <option value="vancouver">Vancouver</option>
+        <option value="apa">APA</option>
+        <option value="harvard1">Harvard</option>
+      </select>
+      <div class="toolbar">
+        <button id="refresh">Refresh citations</button
+        ><button id="bibliography">Reference list here</button>
+      </div>
+      <h2>Document sources</h2>
+      <div id="sources"></div>
+      <p id="status" role="status">Opening Word…</p>
+      <p class="small">
+        Updates run on explicit actions. Edit grouped citations and source metadata through the
+        agent API or portable document workflow. Resolve tracked changes before using this preview.
+      </p>
+    </main>
+    <script type="module" src="/word.js"></script>
+  </body>
+</html>
