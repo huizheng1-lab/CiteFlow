@@ -74,3 +74,20 @@ test('offline agent imports a local file and enforces workspace boundary', async
   assert.equal(result.sources[0].DOI, '10.1234/test');
   await assert.rejects(agent.call('sources_import', { input: '/etc/hosts' }), /outside/);
 });
+
+test('mixed RIS batches preserve generic records alongside journal articles and books', () => {
+  const raw = ['JOUR', 'GEN', 'BOOK']
+    .map(
+      (type, i) =>
+        `TY  - ${type}\nTI  - Synthetic reference ${i}\nAU  - Example, Jane\nPY  - 2024\nER  -`,
+    )
+    .join('\n\n');
+  for (const ending of ['\n', '\r\n', '\r']) {
+    const result = importSources(raw.replaceAll('\n', ending));
+    assert.equal(result.parsed, 3);
+    assert.deepEqual(
+      result.sources.map((s) => s.type),
+      ['article-journal', 'document', 'book'],
+    );
+  }
+});

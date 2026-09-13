@@ -23,6 +23,7 @@ const source = z
       'paper-conference',
       'thesis',
       'article',
+      'document',
     ]),
     title: z.string().min(1),
     author: z

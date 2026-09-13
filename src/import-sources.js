@@ -120,7 +120,10 @@ export function importSources(raw, format = 'auto') {
     typeof raw === 'string' && new TextEncoder().encode(raw).length <= 5_000_000,
     'Reference file exceeds 5 MB',
   );
-  raw = raw.replace(/^\uFEFF/, '').trim();
+  raw = raw
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n?/g, '\n')
+    .trim();
   assert(raw, 'Reference file is empty');
   if (format === 'auto')
     format = raw.startsWith('<')

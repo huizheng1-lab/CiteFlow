@@ -17,7 +17,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.1', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.2', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -381,6 +381,7 @@ function sourceEditor(source) {
     'paper-conference',
     'thesis',
     'article',
+    'document',
   ]) {
     const o = document.createElement('option');
     o.value = v;

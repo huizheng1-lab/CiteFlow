@@ -63,6 +63,7 @@ export function normalizeSource(input) {
       'paper-conference',
       'thesis',
       'article',
+      'document',
     ].includes(input.type),
     'Unsupported CSL source type',
   );
