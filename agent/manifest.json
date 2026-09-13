@@ -1,6 +1,6 @@
 {
   "name": "CiteFlow Local Agent",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "download": "https://www.rerioa.com/CiteFlow/citeflow-agent.cjs",
   "checksum": "https://www.rerioa.com/CiteFlow/citeflow-agent.sha256",
   "instructions": "https://www.rerioa.com/CiteFlow/AGENT_GUIDE.md",
@@ -9,7 +9,12 @@
   "mcp": {
     "transport": "stdio",
     "command": "node",
-    "args": ["/absolute/path/citeflow-agent.cjs", "--root", "/absolute/path/workspace", "mcp"]
+    "args": [
+      "/absolute/path/citeflow-agent.cjs",
+      "--root",
+      "/absolute/path/workspace",
+      "mcp"
+    ]
   },
   "tools": [
     "docx_create",

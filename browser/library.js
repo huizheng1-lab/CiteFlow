@@ -1,5 +1,5 @@
 import { importSources } from '../src/import-sources.js';
-import { normalizeSource, sourceKey, assert } from '../src/model.js';
+import { normalizeSource, exactSourceKey, assert } from '../src/model.js';
 export class LocalLibrary {
   constructor(storage = globalThis.localStorage) {
     this.storage = storage;
@@ -9,13 +9,19 @@ export class LocalLibrary {
     if (!raw) return [];
     const items = JSON.parse(raw);
     assert(Array.isArray(items), 'Local library is invalid; restore a backup');
-    return items.map(normalizeSource);
+    const seen = new Set();
+    return items.map(normalizeSource).filter((source) => {
+      const key = exactSourceKey(source);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
   save(source) {
     const normalized = normalizeSource(source),
       items = this.read(),
-      key = sourceKey(normalized);
-    const old = items.find((x) => sourceKey(x) === key);
+      key = exactSourceKey(normalized);
+    const old = items.find((x) => exactSourceKey(x) === key);
     if (!old) items.push(normalized);
     this.storage.setItem('citeflow.library.v1', JSON.stringify(items));
     return old || normalized;
@@ -24,13 +30,16 @@ export class LocalLibrary {
     return JSON.stringify({ schemaVersion: 1, sources: this.read() }, null, 2);
   }
   import(raw) {
-    const incoming = importSources(raw).sources,
-      items = this.read(),
-      keys = new Set(items.map(sourceKey));
+    return this.include(importSources(raw).sources);
+  }
+  include(incoming) {
+    incoming = incoming.map(normalizeSource);
+    const items = this.read(),
+      keys = new Set(items.map(exactSourceKey));
     for (const s of incoming)
-      if (!keys.has(sourceKey(s))) {
+      if (!keys.has(exactSourceKey(s))) {
         items.push(s);
-        keys.add(sourceKey(s));
+        keys.add(exactSourceKey(s));
       }
     this.storage.setItem('citeflow.library.v1', JSON.stringify(items));
     return items.length;

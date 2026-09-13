@@ -128,3 +128,5 @@ Use `docx_edit` with its usual hash/revision guards and a new output file:
 - `{"type":"source.merge","from":"DUPLICATE_ID","to":"KEEP_ID"}` redirects all citations to the retained source and removes the duplicate. The retained metadata is unchanged. Locators, prefixes and suffixes are preserved; identical items within a citation group are collapsed, while distinct locators are retained.
 
 Inspect and review metadata before merging: choosing two records asserts that they represent the same publication. Multiple merges may be supplied in one atomic edit.
+
+Exact duplicate imports are collapsed using bibliographic metadata, ignoring internal IDs and citation keys. Different metadata sharing a DOI/PMID is retained for review. When a user has chosen to retain distinct versions, pass `allowDuplicate: true` on `source.upsert`; this still reuses exact duplicates. Browser imports and inclusion show near matches for selection before writing.

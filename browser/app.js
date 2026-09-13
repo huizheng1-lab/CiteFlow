@@ -1,3 +1,5 @@
+import { reviewSources } from '../src/source-duplicates.js';
+import { importSources } from '../src/import-sources.js';
 import { LocalLibrary } from './library.js';
 import { lookupSource } from './lookup.js';
 import { insertionFromSelection } from './selection.js';
@@ -13,7 +15,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.5.1', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.5.2', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -102,19 +104,68 @@ async function edit(operations, options = {}) {
   status('Updated locally. Download the Word file to save your changes.');
   return state;
 }
-async function citeSavedSource(source) {
+async function includeSavedSource(source) {
   if (!state) throw new Error('Open a Word document first');
-  if (!anchor) throw new Error('Select an insertion point in the manuscript first');
-  status('Inserting citation on this device…');
-  state = await local('citeSource', {
-    source,
-    anchor: { ...anchor },
-    leadingSpace: !/\s/.test(anchor.paragraphText[anchor.endOffset - 1] || ''),
+  const existing = Object.values(state.document.sources);
+  const plan = reviewSources(existing, [source]);
+  const commit = async (selected) => {
+    if (selected.length)
+      await edit(
+        selected.map((source) => ({ type: 'source.upsert', source, allowDuplicate: true })),
+      );
+    status(
+      selected.length
+        ? 'Included in resources. Select an insertion point and use Cite here under Sources.'
+        : 'No new resources included.',
+    );
+  };
+  if (!plan.incoming.length) {
+    await edit([{ type: 'source.upsert', source, allowDuplicate: true }]);
+    status('This reference is already included in resources. Exact duplicates are reused.');
+  } else if (plan.near.length) reviewEditor(plan, commit, 'resources');
+  else await commit(plan.incoming);
+}
+async function saveToLibrary(sources) {
+  const plan = reviewSources(library.read(), sources);
+  const commit = async (selected) => {
+    const n = library.include(selected);
+    drawLibrary();
+    status(`${n} saved references. ${plan.duplicates} exact duplicates skipped.`);
+  };
+  if (plan.near.length) reviewEditor(plan, commit, 'the Local library');
+  else await commit(plan.incoming);
+}
+function reviewEditor(plan, commit, target) {
+  editing = { review: { plan, commit } };
+  $('#editor-title').textContent = 'Review nearly identical references';
+  $('#save-edit').textContent = 'Keep selected';
+  $('#fields').replaceChildren(
+    paragraph(
+      `Exact duplicates have been skipped automatically. Select new references to keep in ${target}. Existing entries remain unchanged.`,
+    ),
+  );
+  const nearIndices = new Set(plan.near.flatMap((match) => match.incomingIndices));
+  plan.incoming.forEach((source, index) => {
+    const label = document.createElement('label');
+    label.className = 'check';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.dataset.reviewSource = String(index);
+    check.checked = !nearIndices.has(index);
+    label.append(check, document.createTextNode(sourceSummary(source)));
+    $('#fields').append(label);
+    for (const match of plan.near.filter((m) => m.incomingIndices.includes(index))) {
+      $('#fields').append(
+        paragraph(
+          match.reason +
+            (match.existingSource
+              ? ' — Already present: ' + sourceSummary(match.existingSource)
+              : ' — Similar to another new reference shown here.'),
+        ),
+      );
+    }
   });
-  dirty = true;
-  setAnchor(null);
-  draw();
-  status('Citation inserted. Download the Word file to save your changes.');
+  $('#editor').showModal();
 }
 function sourceCard(s, { saved = false } = {}) {
   const el = document.createElement('article');
@@ -129,7 +180,7 @@ function sourceCard(s, { saved = false } = {}) {
   const actions = document.createElement('div');
   actions.className = 'actions';
   if (saved) {
-    actions.append(button('Cite here', () => citeSavedSource(s)));
+    actions.append(button('Include in resources', () => includeSavedSource(s)));
   } else {
     actions.append(
       button('Cite here', async () => {
@@ -144,11 +195,7 @@ function sourceCard(s, { saved = false } = {}) {
         ]);
       }),
       button('Edit details', () => sourceEditor(s)),
-      button('Save to library', () => {
-        library.save(s);
-        drawLibrary();
-        status('Reference saved in this browser. Export a backup for safekeeping.');
-      }),
+      button('Save to library', () => saveToLibrary([s])),
     );
   }
   if (!saved) {
@@ -256,6 +303,10 @@ function sourceSummary(source) {
     source.issued?.['date-parts']?.[0]?.[0] || 'Date missing',
     source.type,
     source['container-title'],
+    source.volume,
+    source.issue,
+    source.page,
+    source.publisher,
     source.DOI,
     source.PMID,
     source.URL,
@@ -366,6 +417,15 @@ function citationEditor(c) {
   $('#editor').showModal();
 }
 $('#save-edit').onclick = guard(async () => {
+  if (editing.review) {
+    const { plan, commit } = editing.review;
+    const selected = [...$('#fields').querySelectorAll('[data-review-source]:checked')].map(
+      (e) => plan.incoming[Number(e.dataset.reviewSource)],
+    );
+    await commit(selected);
+    $('#editor').close();
+    return;
+  }
   if (editing.mergeInto) {
     const selected = [...$('#fields').querySelectorAll('[data-merge-source]:checked')];
     if (!selected.length) throw new Error('Select at least one duplicate to merge.');
@@ -457,9 +517,7 @@ $('#lookup').onclick = guard(async () => {
       el.hidden = true;
     }),
     button('Save in local library', () => {
-      library.save(candidate.source);
-      drawLibrary();
-      status('Saved locally.');
+      return saveToLibrary([candidate.source]);
     }),
   );
   status('Review the source identity before adding it.');
@@ -551,9 +609,17 @@ $('#import-library').onchange = guard(async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   if (file.size > 5_000_000) throw new Error('Reference file exceeds 5 MB');
-  const n = library.import(await file.text());
-  drawLibrary();
-  status(`Imported locally. ${n} saved references.`);
+  const parsed = importSources(await file.text());
+  const plan = reviewSources(library.read(), parsed.sources);
+  const commit = async (selected) => {
+    const n = library.include(selected);
+    drawLibrary();
+    status(
+      `Imported locally. ${n} saved references. ${parsed.duplicates + plan.duplicates} exact duplicates skipped.`,
+    );
+  };
+  if (plan.near.length) reviewEditor(plan, commit, 'the Local library');
+  else await commit(plan.incoming);
   e.target.value = '';
 });
 $('#clear-library').onclick = guard(() => {

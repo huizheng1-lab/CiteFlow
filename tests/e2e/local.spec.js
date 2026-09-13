@@ -167,10 +167,13 @@ test('saved library imports RIS, BibTeX and XML offline and can cite imported so
   await page
     .locator('#library .source')
     .filter({ hasText: 'RIS imported source' })
-    .getByRole('button', { name: 'Cite here', exact: true })
+    .getByRole('button', { name: 'Include in resources', exact: true })
     .click();
   await page.locator('#tab-sources').click();
   await expect(page.locator('#sources .source')).toHaveCount(1);
+  await expect(page.locator('[data-paragraph="1"]')).not.toContainText('(1)');
+  await page.locator('[data-paragraph="1"]').click();
+  await page.locator('#sources').getByRole('button', { name: 'Cite here', exact: true }).click();
   await expect(page.locator('[data-paragraph="1"]')).toContainText('(1)');
 });
 
@@ -217,4 +220,62 @@ test('duplicate sources can be merged, undone and deleted when unused', async ({
   await expect(page.locator('#sources .source')).toHaveCount(1);
   await page.locator('#undo').click();
   await expect(page.locator('#sources .source')).toHaveCount(2);
+});
+
+test('near duplicates require selection; inclusion is idempotent and never inserts a citation', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await open(page);
+  await page.locator('#tab-library').click();
+  const a = {
+    type: 'article-journal',
+    title: 'Near duplicate publication',
+    DOI: '10.1234/review',
+    issued: { 'date-parts': [[2024]] },
+  };
+  const b = { ...a, issued: { 'date-parts': [[2025]] } };
+  const upload = () =>
+    page.locator('#import-library').setInputFiles({
+      name: 'near.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify([a, b, a])),
+    });
+  await upload();
+  await expect(
+    page.getByRole('heading', { name: 'Review nearly identical references' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Accept all', exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-review-source]')).toHaveCount(2);
+  await page.locator('#cancel-edit').click();
+  expect(await page.evaluate(() => localStorage.getItem('citeflow.library.v1'))).toBeNull();
+  await upload();
+  await page.locator('[data-review-source]').first().check();
+  await page.getByRole('button', { name: 'Keep selected', exact: true }).click();
+  await expect(page.locator('#library .source')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Include in resources', exact: true }).click();
+  await page.getByRole('button', { name: 'Include in resources', exact: true }).click();
+  await page.locator('#tab-sources').click();
+  await expect(page.locator('#sources .source')).toHaveCount(1);
+  await expect(page.locator('#preview')).not.toContainText('(1)');
+  await page.locator('#tab-library').click();
+  await page.locator('#import-library').setInputFiles({
+    name: 'variant.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify([b])),
+  });
+  await expect(page.locator('#editor')).toBeVisible();
+  await expect(page.locator('[data-review-source]')).toHaveCount(1);
+  await page.locator('[data-review-source]').check();
+  await page.getByRole('button', { name: 'Keep selected', exact: true }).click();
+  await expect(page.locator('#library .source')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Include in resources', exact: true }).last().click();
+  await expect(page.locator('#editor')).toBeVisible();
+  await expect(page.locator('#editor')).toBeVisible();
+  await expect(page.locator('[data-review-source]')).toHaveCount(1);
+  await page.locator('[data-review-source]').check();
+  await page.getByRole('button', { name: 'Keep selected', exact: true }).click();
+  await page.locator('#tab-sources').click();
+  await expect(page.locator('#sources .source')).toHaveCount(2);
+  await expect(page.locator('#preview')).not.toContainText('(1)');
 });

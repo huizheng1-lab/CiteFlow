@@ -2,7 +2,7 @@ import { Cite } from '@citation-js/core';
 import '@citation-js/plugin-bibtex';
 import '@citation-js/plugin-ris';
 import { DOMParser } from '@xmldom/xmldom';
-import { assert, normalizeSource, sourceKey } from './model.js';
+import { assert, normalizeSource, exactSourceKey } from './model.js';
 
 const all = (node, tag) => Array.from(node.getElementsByTagName(tag));
 const first = (node, tag) => all(node, tag)[0];
@@ -162,7 +162,7 @@ export function importSources(raw, format = 'auto') {
       const clean = { ...record };
       delete clean._graph;
       const source = normalizeSource(clean),
-        key = sourceKey(source);
+        key = exactSourceKey(source);
       if (!keys.has(key)) {
         keys.add(key);
         sources.push(source);

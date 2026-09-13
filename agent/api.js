@@ -62,7 +62,16 @@ const anchor = z.union([
 const operation = z.discriminatedUnion(
   'type',
   [
-    z.object({ type: z.literal('source.upsert'), source }),
+    z.object({
+      type: z.literal('source.upsert'),
+      source,
+      allowDuplicate: z
+        .boolean()
+        .optional()
+        .describe(
+          'Only after reviewing near duplicates: retain distinct metadata for the same identifier. Exact duplicates are still reused.',
+        ),
+    }),
     z.object({ type: z.literal('source.remove'), sourceId: z.string() }),
     z.object({ type: z.literal('source.merge'), from: z.string(), to: z.string() }),
     z.object({

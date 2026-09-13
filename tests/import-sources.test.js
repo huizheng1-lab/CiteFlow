@@ -51,7 +51,7 @@ test('import deduplicates and failed imports preserve saved library atomically',
   assert.equal(importSources(ris + '\n' + ris).duplicates, 1);
   l.import(ris);
   l.import(bib);
-  assert.equal(l.read().length, 1);
+  assert.equal(l.read().length, 2); // Same DOI with different metadata remains available for review.
   const before = l.export();
   assert.throws(() => l.import(ris + '\nTY  - JOUR\nER  -'), /Reference 2/);
   assert.equal(l.export(), before);

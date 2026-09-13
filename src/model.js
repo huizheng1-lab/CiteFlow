@@ -27,7 +27,10 @@ export function sourceKey(source) {
     u.hash = '';
     return 'url:' + u.href;
   }
-  // Do not merge different works on a title-only fuzzy match.
+  return exactSourceKey(source);
+}
+export function exactSourceKey(source) {
+  // Ignore internal IDs and citation keys; compare all bibliographic metadata.
   const canonical = (value) =>
     Array.isArray(value)
       ? value.map(canonical)
@@ -38,7 +41,10 @@ export function sourceKey(source) {
               .map((key) => [key, canonical(value[key])]),
           )
         : value;
-  return 'record:' + hash(canonical(normalizeSource(source)));
+  const clean = normalizeSource(source);
+  delete clean['citation-key'];
+  delete clean._graph;
+  return 'record:' + hash(canonical(clean));
 }
 export function normalizeSource(input) {
   assert(
@@ -127,8 +133,14 @@ export function apply(doc, op) {
   switch (op.type) {
     case 'source.upsert': {
       const s = normalizeSource(op.source);
-      const existing = Object.entries(doc.sources).find(([, v]) => sourceKey(v) === sourceKey(s));
-      if (existing) return { sourceId: existing[0], reused: true };
+      const key = op.allowDuplicate ? exactSourceKey : sourceKey;
+      const existing = Object.entries(doc.sources).find(([, v]) => key(v) === key(s));
+      if (existing) {
+        for (const [sid, other] of Object.entries(doc.sources))
+          if (sid !== existing[0] && exactSourceKey(other) === exactSourceKey(existing[1]))
+            apply(doc, { type: 'source.merge', from: sid, to: existing[0] });
+        return { sourceId: existing[0], reused: true };
+      }
       const sid = id();
       doc.sources[sid] = { ...s, id: sid };
       return { sourceId: sid, reused: false };
@@ -159,7 +171,7 @@ export function apply(doc, op) {
       const s = normalizeSource({ ...doc.sources[op.sourceId], ...op.patch });
       assert(
         !Object.entries(doc.sources).some(
-          ([k, v]) => k !== op.sourceId && sourceKey(v) === sourceKey(s),
+          ([k, v]) => k !== op.sourceId && exactSourceKey(v) === exactSourceKey(s),
         ),
         'Update would duplicate an existing source; replace citations instead',
         409,
