@@ -11,3 +11,5 @@ No third-party full-text publications are bundled. Test metadata is synthetic ex
 
 - **@noble/hashes**: browser-compatible SHA-256 hashing, MIT license.
 - **esbuild** and **Playwright**: development-only build and browser-testing tools; see their package licenses.
+
+- **Tiptap** and **ProseMirror**: rich-text editing framework and document model, MIT licenses; see installed packages for copyright notices.

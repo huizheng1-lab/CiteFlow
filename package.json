@@ -1,6 +1,6 @@
 {
   "name": "@digimatrix-labs/citeflow",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Document-centered citations for humans and AI agents",
@@ -29,6 +29,10 @@
     "@citation-js/plugin-ris": "^0.7.21",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@noble/hashes": "^1.8.0",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/extension-table": "3.31.3",
+    "@tiptap/extension-text-align": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
     "@xmldom/xmldom": "^0.9.12",
     "cheerio": "1.1.2",
     "citeproc": "2.4.63",

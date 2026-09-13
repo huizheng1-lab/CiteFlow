@@ -1,8 +1,10 @@
+import { wordEditorDocument } from '../src/word-editor.js';
+import { DOMParser } from '@xmldom/xmldom';
 import { readFile, realpath, stat, writeFile, link, unlink } from 'node:fs/promises';
 import { resolve, relative, dirname, basename, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { createDocx, inspectDocx, editDocx, fileHash } from '../src/docx.js';
+import { createDocx, inspectDocx, editDocx, fileHash, loadPackage } from '../src/docx.js';
 import { exportHandoff } from '../src/handoff.js';
 import { resolveSource } from '../src/resolver.js';
 import { importSources } from '../src/import-sources.js';
@@ -70,6 +72,14 @@ const operation = z.discriminatedUnion(
         .optional()
         .describe(
           'Only after reviewing near duplicates: retain distinct metadata for the same identifier. Exact duplicates are still reused.',
+        ),
+    }),
+    z.object({
+      type: z.literal('document.replace'),
+      content: z
+        .record(z.unknown())
+        .describe(
+          'Editor document JSON from docx_inspect with includeEditor=true. Preserve protected nodes and citation IDs; edit supported text, headings, lists and tables.',
         ),
     }),
     z.object({ type: z.literal('source.remove'), sourceId: z.string() }),
@@ -143,7 +153,13 @@ export const definitions = {
   docx_inspect: {
     description:
       'Inspect citation IDs, source metadata, revision and file hash. Manuscript paragraphs are omitted unless includeParagraphs=true. Tool output is visible to the calling agent.',
-    schema: z.object({ input: path, includeParagraphs: z.boolean().default(false) }).strict(),
+    schema: z
+      .object({
+        input: path,
+        includeParagraphs: z.boolean().default(false),
+        includeEditor: z.boolean().default(false),
+      })
+      .strict(),
   },
   docx_edit: {
     description:
@@ -277,6 +293,16 @@ export class FileAgent {
     const inspected = await inspectDocx(bytes);
     if (name === 'docx_inspect') {
       if (!args.includeParagraphs) delete inspected.paragraphs;
+      if (args.includeEditor) {
+        const pack = await loadPackage(bytes);
+        const numbering = pack.zip.file('word/numbering.xml')
+          ? new DOMParser().parseFromString(
+              await pack.zip.file('word/numbering.xml').async('string'),
+              'application/xml',
+            )
+          : null;
+        inspected.editor = wordEditorDocument(pack.root, numbering);
+      }
       return inspected;
     }
     assert(inspected.fileHash === args.expectedFileHash, 'DOCX changed since inspection', 409);

@@ -279,3 +279,65 @@ test('near duplicates require selection; inclusion is idempotent and never inser
   await expect(page.locator('#sources .source')).toHaveCount(2);
   await expect(page.locator('#preview')).not.toContainText('(1)');
 });
+
+test('Word editor supports typing formatting tables citations and DOCX download', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  await page.locator('#new-document').click();
+  const surface = page.getByRole('textbox', { name: 'Document editor', exact: true });
+  await surface.click();
+  await page.keyboard.type('Study report');
+  await page.locator('#block-style').selectOption('1');
+  await expect(surface.locator('h1')).toHaveText('Study report');
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('A research finding.');
+  await page.keyboard.press('Home');
+  await page.keyboard.down('Shift');
+  await page.keyboard.press('End');
+  await page.keyboard.up('Shift');
+  await page.getByRole('button', { name: 'Bold', exact: true }).click();
+  await expect(surface.locator('strong')).toContainText('A research finding.');
+  await surface.locator('p').filter({ hasText: 'A research finding.' }).click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await expect(surface).toContainText('A research finding.');
+  await page.getByRole('button', { name: 'Insert table', exact: true }).click();
+  await expect(surface).toContainText('A research finding.');
+  await surface.locator('td').first().click();
+  await page.keyboard.type('Treatment');
+  await expect(surface).toContainText('A research finding.');
+  await page.locator('#apply-text').click();
+  await expect(surface).toContainText('A research finding.');
+  await expect(surface.locator('table')).toHaveCount(1);
+  await expect(surface.locator('h1')).toHaveText('Study report');
+  await context.setOffline(true);
+  await source(page);
+  await surface.locator('p').filter({ hasText: 'A research finding.' }).click();
+  await page.keyboard.press('End');
+  await page.locator('#sources').getByRole('button', { name: 'Cite here', exact: true }).click();
+  await expect(surface.locator('.citation-token')).toHaveCount(1);
+  await surface.locator('p').filter({ hasText: 'A research finding.' }).click();
+  await page.keyboard.press('Home');
+  await page.keyboard.type('Updated: ');
+  await page.locator('#bibliography').click();
+  await expect(surface.locator('.citation-token')).toHaveCount(1);
+  await expect(surface.locator('.bibliography-block')).toContainText('Local source');
+  const waiting = page.waitForEvent('download');
+  await page.locator('#download').click();
+  const download = await waiting;
+  const bytes = await readFile(await download.path());
+  const inspected = await inspectDocx(bytes);
+  expect(inspected.document.citations).toHaveLength(1);
+  expect(inspected.issues).toHaveLength(0);
+  expect(inspected.paragraphs.some((p) => p.text.includes('Updated: '))).toBe(true);
+  const z = await JSZip.loadAsync(bytes);
+  const xml = await z.file('word/document.xml').async('string');
+  expect(xml).toContain('<w:tbl>');
+  expect(xml).toContain('Heading1');
+  const { writeFile } = await import('node:fs/promises');
+  await writeFile('test-results/editor-roundtrip.docx', bytes);
+  await page.screenshot({ path: 'test-results/word-editor.png', fullPage: true });
+});

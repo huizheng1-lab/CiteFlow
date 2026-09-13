@@ -16,7 +16,7 @@
       href="./agent-manifest.json"
       title="CLI and MCP agent manifest"
     />
-    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./style.css?v=0.6.0" />
   </head>
   <body>
     <header>
@@ -45,6 +45,7 @@
             accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             hidden
         /></label>
+        <button id="new-document">New document</button>
       </section>
       <div id="status" role="status" aria-live="polite">
         Ready. Choose a document or drop it here.
@@ -58,7 +59,7 @@
             <option value="apa">APA · author–year</option>
             <option value="harvard1">Harvard · author–year</option>
           </select></label
-        ><button id="undo" data-needs-doc>Undo</button
+        ><button id="undo" data-needs-doc>Undo</button><button id="redo" data-needs-doc>Redo</button
         ><button id="download" class="primary" data-needs-doc>Download Word file</button
         ><button id="handoff" data-needs-doc>Export for collaborators</button
         ><button id="close" data-needs-doc>Close file</button>
@@ -67,12 +68,37 @@
         <div class="manuscript">
           <div class="section-head">
             <h2>Manuscript</h2>
-            <span class="badge">LOCAL PREVIEW</span>
+            <span class="badge">DOCUMENT EDITOR</span>
           </div>
           <p class="hint">
-            Select text to cite after it, or click a paragraph to cite at its end. This is a text
-            preview; your original Word layout is preserved in the downloaded file.
+            Type and format your document here. Citations remain linked as you edit. Select a
+            position and use Cite here in Sources to insert a citation. Complex Word elements are
+            preserved as protected content.
           </p>
+          <div class="editor-toolbar" role="toolbar" aria-label="Document formatting">
+            <select id="block-style" aria-label="Paragraph style" data-needs-doc>
+              <option value="paragraph">Normal text</option>
+              <option value="1">Heading 1</option>
+              <option value="2">Heading 2</option>
+              <option value="3">Heading 3</option>
+            </select>
+            <button data-format="bold" data-needs-doc title="Bold (Ctrl+B)">Bold</button
+            ><button data-format="italic" data-needs-doc>Italic</button
+            ><button data-format="underline" data-needs-doc>Underline</button>
+            <button data-format="left" data-needs-doc>Align left</button
+            ><button data-format="center" data-needs-doc>Center</button
+            ><button data-format="right" data-needs-doc>Align right</button
+            ><button data-format="justify" data-needs-doc>Justify</button>
+            <button data-format="bullet" data-needs-doc>Bullets</button
+            ><button data-format="numbered" data-needs-doc>Numbering</button>
+            <button data-format="table" data-needs-doc>Insert table</button
+            ><button data-format="row" data-needs-doc>Add row</button
+            ><button data-format="column" data-needs-doc>Add column</button
+            ><button data-format="deleteRow" data-needs-doc>Delete row</button
+            ><button data-format="deleteColumn" data-needs-doc>Delete column</button
+            ><button data-format="deleteTable" data-needs-doc>Delete table</button>
+            <button id="apply-text" data-needs-doc>Apply text edits</button>
+          </div>
           <p id="insertion" class="insertion">Choose an insertion point in the document.</p>
           <div id="preview" class="paper">
             <p class="empty">Your manuscript will appear here.</p>
@@ -196,6 +222,6 @@
         ><button id="save-settings" class="primary">Save settings</button>
       </div>
     </dialog>
-    <script type="module" src="./app.js?v=0.5.2"></script>
+    <script type="module" src="./app.js?v=0.6.0"></script>
   </body>
 </html>

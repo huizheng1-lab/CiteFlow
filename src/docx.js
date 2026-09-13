@@ -4,6 +4,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import { assert, apply, newDocument, validate } from './model.js';
 import { format } from './format.js';
+import { replaceWordContent } from './word-editor.js';
 import { richRuns } from './rich-text.js';
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
   CF = 'https://digimatrix-labs.org/citeflow/v1',
@@ -163,10 +164,17 @@ function insertAfterText(root, anchor, node) {
     );
     assert(
       Number.isInteger(anchor.endOffset) &&
-        anchor.endOffset > 0 &&
+        anchor.endOffset >= 0 &&
         anchor.endOffset <= text(p).length,
       'Select an insertion point after some paragraph text',
     );
+    if (anchor.endOffset === 0) {
+      p.insertBefore(
+        node,
+        Array.from(p.childNodes).find((n) => n.nodeType === 1 && n.localName !== 'pPr') || null,
+      );
+      return;
+    }
     const ts = all(p, 't');
     precise = { ts, end: anchor.endOffset };
   }
@@ -194,6 +202,19 @@ function insertAfterText(root, anchor, node) {
     const len = t.textContent.length;
     if (offset + len >= end) {
       const r = t.parentNode;
+      let owner = r.parentNode;
+      while (owner && owner.localName !== 'p' && owner.localName !== 'sdt')
+        owner = owner.parentNode;
+      if (
+        owner?.localName === 'sdt' &&
+        tag(owner).startsWith('citeflow:citation:') &&
+        offset + len === end &&
+        all(owner, 't').at(-1) === t &&
+        owner.parentNode.localName === 'p'
+      ) {
+        owner.parentNode.insertBefore(node, owner.nextSibling);
+        return;
+      }
       assert(
         r.localName === 'r' &&
           all(r, 't').length === 1 &&
@@ -261,6 +282,64 @@ export async function editDocx(
   doc.citations = ids.map((cid) => doc.citations.find((c) => c.id === cid));
   const results = [];
   for (const op of operations) {
+    if (op.type === 'document.replace') {
+      const numberingRaw = zip.file('word/numbering.xml')
+        ? await zip.file('word/numbering.xml').async('string')
+        : `<w:numbering xmlns:w="${W}"/>`;
+      const numbering = xml(numberingRaw);
+      const maxId = Math.max(
+        10000,
+        ...all(numbering, 'num').map((n) => Number(attr(n, 'numId')) || 0),
+        ...all(numbering, 'abstractNum').map((n) => Number(attr(n, 'abstractNumId')) || 0),
+      );
+      const lists = replaceWordContent(root, op.content, doc, maxId + 1);
+      if (lists.length) {
+        for (const list of lists) {
+          const fragment = xml(
+            `<w:numbering xmlns:w="${W}"><w:abstractNum w:abstractNumId="${list.id}">${Array.from({ length: 9 }, (_, i) => `<w:lvl w:ilvl="${i}"><w:start w:val="${list.start}"/><w:numFmt w:val="${list.ordered ? 'decimal' : 'bullet'}"/><w:lvlText w:val="${list.ordered ? '%' + (i + 1) + '.' : '•'}"/><w:pPr><w:ind w:left="${720 * (i + 1)}" w:hanging="360"/></w:pPr></w:lvl>`).join('')}</w:abstractNum><w:num w:numId="${list.id}"><w:abstractNumId w:val="${list.id}"/></w:num></w:numbering>`,
+          );
+          for (const n of Array.from(fragment.documentElement.childNodes))
+            numbering.documentElement.appendChild(numbering.importNode(n, true));
+        }
+        zip.file('word/numbering.xml', out(numbering));
+        const rp = 'word/_rels/document.xml.rels';
+        const relations = xml(
+          zip.file(rp) ? await zip.file(rp).async('string') : `<Relationships xmlns="${REL}"/>`,
+        );
+        if (
+          !Array.from(relations.documentElement.childNodes).some((n) =>
+            n.getAttribute?.('Type')?.endsWith('/numbering'),
+          )
+        ) {
+          const r = relations.createElementNS(REL, 'Relationship');
+          r.setAttribute('Id', 'rIdCiteFlowNumbering' + String(lists[0].id));
+          r.setAttribute(
+            'Type',
+            'http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering',
+          );
+          r.setAttribute('Target', 'numbering.xml');
+          relations.documentElement.appendChild(r);
+        }
+        zip.file(rp, out(relations));
+        const ct = xml(await zip.file('[Content_Types].xml').async('string'));
+        if (
+          !Array.from(ct.documentElement.childNodes).some(
+            (n) => n.getAttribute?.('PartName') === '/word/numbering.xml',
+          )
+        ) {
+          const n = ct.createElementNS(ct.documentElement.namespaceURI, 'Override');
+          n.setAttribute('PartName', '/word/numbering.xml');
+          n.setAttribute(
+            'ContentType',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml',
+          );
+          ct.documentElement.appendChild(n);
+        }
+        zip.file('[Content_Types].xml', out(ct));
+      }
+      results.push({ edited: true });
+      continue;
+    }
     if (op.type === 'bibliography.place') {
       let target;
       if (op.anchor) {

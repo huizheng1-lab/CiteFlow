@@ -1,4 +1,6 @@
-import { inspectDocx, editDocx } from '../src/docx.js';
+import { inspectDocx, editDocx, loadPackage, createDocx } from '../src/docx.js';
+import { DOMParser } from '@xmldom/xmldom';
+import { wordEditorDocument } from '../src/word-editor.js';
 import { format } from '../src/format.js';
 import { assert } from '../src/model.js';
 import { exportHandoff } from '../src/handoff.js';
@@ -8,6 +10,7 @@ export class LocalWorkspace {
   constructor() {
     this.bytes = null;
     this.history = [];
+    this.future = [];
     this.filename = 'manuscript.docx';
   }
   async open(bytes, filename) {
@@ -17,16 +20,26 @@ export class LocalWorkspace {
     this.bytes = bytes.slice();
     this.filename = filename;
     this.history = [];
+    this.future = [];
     return this.inspect();
   }
   async inspect() {
     assert(this.bytes, 'Open a Word document first');
     const inspection = await inspectDocx(this.bytes);
+    const pack = await loadPackage(this.bytes);
+    const numbering = pack.zip.file('word/numbering.xml')
+      ? new DOMParser().parseFromString(
+          await pack.zip.file('word/numbering.xml').async('string'),
+          'application/xml',
+        )
+      : null;
     return {
       ...inspection,
       rendered: format(inspection.document),
       filename: this.filename,
       undoCount: this.history.length,
+      redoCount: this.future.length,
+      editor: wordEditorDocument(pack.root, numbering),
     };
   }
   async edit(operations, { repair = false } = {}) {
@@ -63,6 +76,7 @@ export class LocalWorkspace {
     return this.commitEdit(edited);
   }
   async commitEdit(edited) {
+    this.future = [];
     this.history.push(this.bytes);
     while (
       this.history.length > 10 ||
@@ -74,8 +88,18 @@ export class LocalWorkspace {
   }
   async undo() {
     assert(this.history.length, 'No earlier local revision');
+    this.future.push(this.bytes);
     this.bytes = this.history.pop();
     return this.inspect();
+  }
+  async redo() {
+    assert(this.future.length, 'No later local revision');
+    this.history.push(this.bytes);
+    this.bytes = this.future.pop();
+    return this.inspect();
+  }
+  async create() {
+    return this.open(await createDocx(['']), 'Untitled.docx');
   }
   download() {
     assert(this.bytes, 'Open a Word document first');
@@ -88,5 +112,6 @@ export class LocalWorkspace {
   close() {
     this.bytes = null;
     this.history = [];
+    this.future = [];
   }
 }

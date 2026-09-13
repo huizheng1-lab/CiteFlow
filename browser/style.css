@@ -412,3 +412,107 @@ dialog textarea {
     letter-spacing: -1px;
   }
 }
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 10px;
+  background: #f4f6f1;
+  border: 1px solid #d6ddcf;
+  border-radius: 8px;
+}
+.editor-toolbar button,
+.editor-toolbar select {
+  padding: 6px 9px;
+  font-size: 12px;
+}
+.word-surface {
+  outline: none;
+  min-height: 440px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.word-surface p {
+  margin: 0 0 12px;
+}
+.word-surface h1 {
+  font-size: 24px;
+}
+.word-surface h2 {
+  font-size: 21px;
+}
+.word-surface h3 {
+  font-size: 18px;
+}
+.word-surface table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  margin: 14px 0;
+}
+.word-surface td,
+.word-surface th {
+  border: 1px solid #bcc8ba;
+  padding: 8px;
+  vertical-align: top;
+  min-width: 40px;
+}
+.word-surface td p {
+  margin: 0;
+}
+.word-surface .selectedCell {
+  background: #e6eee0;
+}
+.word-surface ul,
+.word-surface ol {
+  padding-left: 28px;
+}
+.word-surface li p {
+  margin-bottom: 4px;
+}
+.citation-token {
+  background: #e8efdf;
+  border-radius: 3px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.bibliography-block {
+  white-space: pre-wrap;
+  border-top: 1px solid #d6ddcf;
+  padding-top: 12px;
+  margin-top: 16px;
+}
+.word-preserved {
+  background: #f2eee5;
+  color: #6e6045;
+  border: 1px dashed #b5a98b;
+  padding: 2px 4px;
+}
+.word-preserved-block {
+  padding: 12px;
+  margin: 8px 0;
+  white-space: pre-wrap;
+}
+.ProseMirror-selectednode {
+  outline: 2px solid #718c60;
+}
+.word-surface [data-paragraph].selected {
+  background: #f0f5e9;
+}
+
+.word-surface [data-align='left'] {
+  text-align: left;
+}
+.word-surface [data-align='center'] {
+  text-align: center;
+}
+.word-surface [data-align='right'] {
+  text-align: right;
+}
+.word-surface [data-align='justify'],
+.word-surface [data-align='both'] {
+  text-align: justify;
+}

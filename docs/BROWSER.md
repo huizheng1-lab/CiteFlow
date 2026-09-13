@@ -88,3 +88,9 @@ It has no persistent storage bindings. It returns only normalized citation metad
 # Collaborator exports
 
 Use **Export for collaborators** to download a local ZIP containing an EndNote bulk-conversion document or experimental Mendeley Desktop-field bridge, the original CiteFlow file, cited source metadata, and recipient instructions. Export leaves the current document and undo history unchanged. Neither route has yet passed actual Word add-in acceptance testing. See [HANDOFF.md](HANDOFF.md).
+
+## Write and format documents (0.6)
+
+Choose **New document** or open a `.docx`, then type directly in the document. Select text for bold, italic, or underline. Use the paragraph menu for headings, and toolbar buttons for alignment, lists, and tables. Table controls add or remove rows and columns at the cursor. Undo and Redo cover typing and applied document operations. **Apply text edits** commits text changes locally; citation actions and downloads also apply pending edits automatically. Download the Word file to save your work.
+
+Citation tokens can be moved, copied, or removed while retaining managed source identities. The reference list updates with the citations. Protected images, fields, and complex Word structures retain their original XML and appear as placeholders. Documents with tracked changes are read-only. The browser view is an editing surface, not a paginated Word layout. Cloud autosave and simultaneous collaboration are not included.

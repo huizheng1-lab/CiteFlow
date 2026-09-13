@@ -1,3 +1,4 @@
+import { WordEditor } from './word-editor.js';
 import { reviewSources } from '../src/source-duplicates.js';
 import { importSources } from '../src/import-sources.js';
 import { LocalLibrary } from './library.js';
@@ -15,7 +16,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.5.2', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.0', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -39,9 +40,29 @@ function status(message, error = false) {
   $('#status').textContent = message;
   $('#status').classList.toggle('error', error);
 }
+const wordEditor = new WordEditor($('#preview'), {
+  change: () => {
+    dirty = true;
+    status('Editing locally. Download the Word file to save your changes.');
+    enabled();
+  },
+  selection: (next) => setAnchor(next),
+  problem: (message) => status(message, true),
+});
+async function flushTextEdits() {
+  if (!wordEditor.changed) return;
+  const result = await local('edit', {
+    operations: [{ type: 'document.replace', content: wordEditor.json() }],
+  });
+  state = result;
+  dirty = true;
+  draw();
+  setAnchor(wordEditor.anchor());
+}
 function enabled() {
   for (const e of document.querySelectorAll('[data-needs-doc]')) e.disabled = !state || busy;
-  $('#undo').disabled = !state?.undoCount || busy;
+  $('#undo').disabled = (!state?.undoCount && !wordEditor.changed) || busy;
+  $('#redo').disabled = (!state?.redoCount && !wordEditor.changed) || busy;
   $('#lookup').disabled = busy;
   $('#file').disabled = busy;
 }
@@ -51,11 +72,14 @@ const guard = (fn) => async (event) => {
   busy = true;
   enabled();
   try {
+    wordEditor.setEditable(false);
+    await flushTextEdits();
     await fn(event);
   } catch (e) {
     status(e.message, true);
   } finally {
     busy = false;
+    wordEditor.setEditable(true);
     enabled();
   }
 };
@@ -73,8 +97,7 @@ function paragraph(text, cls = 'hint') {
 }
 function setAnchor(next) {
   anchor = next;
-  for (const p of $('#preview').querySelectorAll('[data-paragraph]'))
-    p.classList.toggle('selected', Number(p.dataset.paragraph) === anchor?.paragraphIndex);
+
   $('#insertion').textContent = anchor
     ? `Insert after: “…${anchor.paragraphText.slice(Math.max(0, anchor.endOffset - 100), anchor.endOffset)}”`
     : 'Choose an insertion point in the document.';
@@ -93,7 +116,11 @@ async function openFile(file) {
   dirty = false;
   setAnchor(null);
   draw();
-  status('Opened locally. Select a citation position. No document was uploaded.');
+  status(
+    result.editor.editable
+      ? 'Opened locally. Type in the document to edit it. Protected Word content is preserved.'
+      : 'This document has tracked changes. Accept them in a copy before editing.',
+  );
 }
 async function edit(operations, options = {}) {
   status('Updating citations on this device…');
@@ -231,31 +258,13 @@ function draw() {
     : '';
   $('#sources').replaceChildren();
   $('#citations').replaceChildren();
-  $('#preview').replaceChildren();
+  wordEditor.show(state?.editor || null);
   if (!state) {
-    $('#preview').append(paragraph('Your manuscript will appear here.', 'empty'));
     drawLibrary();
     enabled();
     return;
   }
   $('#style').value = state.document.style;
-  for (const p of state.paragraphs) {
-    const el = paragraph(p.text, 'paragraph' + (p.managed ? ' managed' : ''));
-    el.dataset.paragraph = p.index;
-    if (!p.managed)
-      el.onclick = () => {
-        if (busy) return;
-        const selection = insertionFromSelection(window.getSelection());
-        setAnchor(
-          !window.getSelection()?.isCollapsed &&
-            selection?.paragraphIndex === p.index &&
-            selection.endOffset > 0
-            ? selection
-            : { paragraphIndex: p.index, paragraphText: p.text, endOffset: p.text.length },
-        );
-      };
-    $('#preview').append(el);
-  }
   for (const s of Object.values(state.document.sources)) $('#sources').append(sourceCard(s));
   if (!Object.keys(state.document.sources).length)
     $('#sources').append(
@@ -522,14 +531,33 @@ $('#lookup').onclick = guard(async () => {
   );
   status('Review the source identity before adding it.');
 });
-$('#style').onchange = guard(() => edit([{ type: 'style.set', style: $('#style').value }]));
-$('#undo').onclick = guard(async () => {
-  state = await local('undo');
-  dirty = true;
-  setAnchor(null);
-  draw();
-  status('Restored the previous local revision.');
-});
+$('#style').onchange = (event) => {
+  const style = event.target.value;
+  return guard(() => edit([{ type: 'style.set', style }]))(event);
+};
+$('#undo').onclick = async (event) => {
+  event.preventDefault();
+  if (busy) return;
+  if (wordEditor.changed && wordEditor.undo()) return;
+  return guard(async () => {
+    state = await local('undo');
+    dirty = true;
+    setAnchor(null);
+    draw();
+    status('Restored the previous local revision.');
+  })(event);
+};
+$('#redo').onclick = async (event) => {
+  event.preventDefault();
+  if (busy) return;
+  if (wordEditor.changed && wordEditor.redo()) return;
+  return guard(async () => {
+    state = await local('redo');
+    dirty = true;
+    draw();
+    status('Restored the next local revision.');
+  })(event);
+};
 function download(bytes, name, type) {
   const u = URL.createObjectURL(new Blob([bytes], { type })),
     a = document.createElement('a');
@@ -663,3 +691,26 @@ else {
   makeWorker();
   draw();
 }
+
+$('#new-document').onclick = guard(async () => {
+  if (dirty && !confirm('Create a new document without downloading the current changes?')) return;
+  state = await local('create');
+  dirty = true;
+  setAnchor(null);
+  draw();
+  status('New document. Start typing, then download the Word file to save it.');
+});
+for (const control of document.querySelectorAll('[data-format]')) {
+  control.onmousedown = (e) => e.preventDefault();
+  control.onclick = (e) => {
+    e.preventDefault();
+    if (!busy) wordEditor.command(control.dataset.format, control.dataset.value);
+  };
+}
+$('#block-style').onchange = (e) => {
+  if (!busy)
+    wordEditor.command(e.target.value === 'paragraph' ? 'paragraph' : 'heading', e.target.value);
+};
+$('#apply-text').onclick = guard(async () =>
+  status('Text edits applied locally. Download the Word file to save them.'),
+);

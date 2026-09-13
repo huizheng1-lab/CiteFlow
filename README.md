@@ -12,7 +12,9 @@ This is an **initial working release**, not a production-certified Word or Googl
 
 ## Browser app: documents stay on your computer
 
-**Version 0.2 adds a browser-local Word citation editor.** Open a `.docx` without uploading it, select citation positions, add/remove/edit citations, place a reference list, and download the updated file. Citation processing runs in a Web Worker on your device. Saved references stay in browser storage; document bytes stay in memory until downloaded or closed.
+**Version 0.6 adds document editing in the browser.** Create a blank document or edit an existing Word file: type, delete, rewrite, format text and paragraphs, add headings, lists, and tables, and undo or redo changes. Open a `.docx` without uploading it, select citation positions, add/remove/edit citations, place a reference list, and download the updated file. Citation processing runs in a Web Worker on your device. Saved references stay in browser storage; document bytes stay in memory until downloaded or closed.
+
+The editor preserves citation controls and keeps the reference list synchronized. Images, fields, and complex Word structures appear as protected placeholders; tracked-change documents remain read-only. This is a local editor, with no cloud autosave or simultaneous collaboration. Download the Word file to persist changes.
 
 Online lookup sends only an explicitly entered DOI or source URL. An optional edge worker handles metadata-only lookups for sites that block direct browser access. Offline mode disables lookups entirely. There are no cloud AI calls.
 
@@ -41,7 +43,7 @@ Open **http://127.0.0.1:3210**. Create a manuscript, paste a source URL, and sav
 
 Data is stored in `data/citeflow.sqlite`. To choose another location, set `CITEFLOW_DB`. Back up the SQLite database with SQLite backup tooling; export a portable JSON snapshot for manuscript exchange. Resolving a URL caches metadata for subsequent offline use. Offline formatting needs no network.
 
-The legacy server workspace at port 3210 manages reference metadata and citation order. The new static browser app opens local Word files and inserts citations into them. Neither app is a full prose editor.
+The legacy server workspace at port 3210 manages reference metadata and citation order. The new static browser app opens local Word files and inserts citations into them. The static app supports prose editing alongside citations; the legacy server workspace remains focused on reference metadata.
 
 ## Included
 

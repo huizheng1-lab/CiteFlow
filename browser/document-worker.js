@@ -10,6 +10,8 @@ self.onmessage = ({ data }) => {
         citeSource: () => workspace.citeSource(data.source, data.anchor, data.leadingSpace),
         edit: () => workspace.edit(data.operations, data.options),
         undo: () => workspace.undo(),
+        redo: () => workspace.redo(),
+        create: () => workspace.create(),
         download: () => workspace.download(),
         exportHandoff: () => workspace.exportHandoff(data.target),
         close: () => workspace.close(),
