@@ -1,3 +1,4 @@
+import { exactSourceKey } from '../src/model.js';
 import { WordEditor } from './word-editor.js';
 import { reviewSources } from '../src/source-duplicates.js';
 import { importSources } from '../src/import-sources.js';
@@ -16,7 +17,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.0', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.1', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -105,7 +106,7 @@ function setAnchor(next) {
 async function openFile(file) {
   if (!file) return;
   if (!file.name.toLowerCase().endsWith('.docx')) throw new Error('Choose a .docx Word file');
-  if (file.size > 25_000_000) throw new Error('This version accepts documents up to 25 MB');
+  if (file.size > 100_000_000) throw new Error('This version accepts documents up to 100 MB');
   if (dirty && !confirm('Discard changes that have not been downloaded?')) return;
   status('Opening locally…');
   const result = await local('open', {
@@ -132,9 +133,12 @@ async function edit(operations, options = {}) {
   return state;
 }
 async function includeSavedSource(source) {
+  return includeSavedSources([source]);
+}
+async function includeSavedSources(sources) {
   if (!state) throw new Error('Open a Word document first');
   const existing = Object.values(state.document.sources);
-  const plan = reviewSources(existing, [source]);
+  const plan = reviewSources(existing, sources);
   const commit = async (selected) => {
     if (selected.length)
       await edit(
@@ -142,12 +146,11 @@ async function includeSavedSource(source) {
       );
     status(
       selected.length
-        ? 'Included in resources. Select an insertion point and use Cite here under Sources.'
+        ? `${selected.length} references included in resources. Select an insertion point and use Cite here under Sources.`
         : 'No new resources included.',
     );
   };
   if (!plan.incoming.length) {
-    await edit([{ type: 'source.upsert', source, allowDuplicate: true }]);
     status('This reference is already included in resources. Exact duplicates are reused.');
   } else if (plan.near.length) reviewEditor(plan, commit, 'resources');
   else await commit(plan.incoming);
@@ -207,7 +210,17 @@ function sourceCard(s, { saved = false } = {}) {
   const actions = document.createElement('div');
   actions.className = 'actions';
   if (saved) {
-    actions.append(button('Include in resources', () => includeSavedSource(s)));
+    const label = document.createElement('label');
+    label.className = 'check';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.dataset.librarySource = exactSourceKey(s);
+    check.setAttribute('aria-label', 'Select ' + s.title);
+    label.append(check, document.createTextNode('Select'));
+    actions.append(
+      label,
+      button('Include in resources', () => includeSavedSource(s)),
+    );
   } else {
     actions.append(
       button('Cite here', async () => {
@@ -246,7 +259,15 @@ function sourceCard(s, { saved = false } = {}) {
 }
 function drawLibrary() {
   try {
+    const selected = new Set(
+      [...$('#library').querySelectorAll('[data-library-source]:checked')].map(
+        (check) => check.dataset.librarySource,
+      ),
+    );
     $('#library').replaceChildren(...library.read().map((s) => sourceCard(s, { saved: true })));
+    const checks = [...$('#library').querySelectorAll('[data-library-source]')];
+    for (const check of checks) check.checked = selected.has(check.dataset.librarySource);
+    $('#select-library').checked = checks.length > 0 && checks.every((check) => check.checked);
   } catch (e) {
     status(e.message, true);
   }
@@ -630,6 +651,23 @@ for (const name of ['sources', 'citations', 'library'])
       $('#tab-' + v).classList.toggle('active', v === name);
     }
   };
+$('#library').onchange = () => {
+  const checks = [...$('#library').querySelectorAll('[data-library-source]')];
+  $('#select-library').checked = checks.length > 0 && checks.every((check) => check.checked);
+};
+$('#select-library').onchange = (event) => {
+  for (const check of $('#library').querySelectorAll('[data-library-source]'))
+    check.checked = event.target.checked;
+};
+$('#include-library').onclick = guard(async () => {
+  const ids = new Set(
+    [...$('#library').querySelectorAll('[data-library-source]:checked')].map(
+      (check) => check.dataset.librarySource,
+    ),
+  );
+  if (!ids.size) throw new Error('Select references from the Local library first.');
+  await includeSavedSources(library.read().filter((source) => ids.has(exactSourceKey(source))));
+});
 $('#export-library').onclick = guard(() =>
   download(library.export(), 'citeflow-library.json', 'application/json'),
 );
@@ -643,7 +681,7 @@ $('#import-library').onchange = guard(async (e) => {
     const n = library.include(selected);
     drawLibrary();
     status(
-      `Imported locally. ${n} saved references. ${parsed.duplicates + plan.duplicates} exact duplicates skipped.`,
+      `Imported ${parsed.parsed} records from ${file.name}. ${n} saved references. ${parsed.duplicates + plan.duplicates} exact duplicates skipped.`,
     );
   };
   if (plan.near.length) reviewEditor(plan, commit, 'the Local library');

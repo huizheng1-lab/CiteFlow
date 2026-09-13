@@ -16,7 +16,7 @@
       href="./agent-manifest.json"
       title="CLI and MCP agent manifest"
     />
-    <link rel="stylesheet" href="./style.css?v=0.6.0" />
+    <link rel="stylesheet" href="./style.css?v=0.6.1" />
   </head>
   <body>
     <header>
@@ -150,6 +150,16 @@
                   hidden /></label
               ><button id="clear-library">Clear library</button>
             </div>
+            <p class="hint">
+              A single RIS, BibTeX, or XML file can contain many references. Import the file once,
+              then select references to include together.
+            </p>
+            <div class="actions">
+              <label class="check"
+                ><input id="select-library" type="checkbox" />Select all references</label
+              >
+              <button id="include-library" data-needs-doc>Include selected in resources</button>
+            </div>
             <div id="library"></div>
           </div>
           <div class="reference-options">
@@ -222,6 +232,6 @@
         ><button id="save-settings" class="primary">Save settings</button>
       </div>
     </dialog>
-    <script type="module" src="./app.js?v=0.6.0"></script>
+    <script type="module" src="./app.js?v=0.6.1"></script>
   </body>
 </html>

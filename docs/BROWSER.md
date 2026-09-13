@@ -5,7 +5,7 @@ The browser app opens and edits Word documents **on the user's device**. It serv
 ## Use
 
 1. Visit the hosted app in a modern browser on HTTPS.
-2. Choose or drop a `.docx` file (up to 25 MB). The File API reads it locally.
+2. Choose or drop a `.docx` file (up to 100 MB). The File API reads it locally.
 3. Add a reference manually, reuse a saved local reference, or explicitly look up a DOI/source URL.
 4. Select manuscript text to insert after that selection, or click a paragraph to insert at its end. Choose **Cite here** on a source.
 5. Edit citation groups and locators from the Citations tab. Switch among Vancouver, APA, and Harvard.
@@ -94,3 +94,7 @@ Use **Export for collaborators** to download a local ZIP containing an EndNote b
 Choose **New document** or open a `.docx`, then type directly in the document. Select text for bold, italic, or underline. Use the paragraph menu for headings, and toolbar buttons for alignment, lists, and tables. Table controls add or remove rows and columns at the cursor. Undo and Redo cover typing and applied document operations. **Apply text edits** commits text changes locally; citation actions and downloads also apply pending edits automatically. Download the Word file to save your work.
 
 Citation tokens can be moved, copied, or removed while retaining managed source identities. The reference list updates with the citations. Protected images, fields, and complex Word structures retain their original XML and appear as placeholders. Documents with tracked changes are read-only. The browser view is an editing surface, not a paginated Word layout. Cloud autosave and simultaneous collaboration are not included.
+
+Large Word files: the compressed file limit is 100 MB, with a separate 500 MB expanded-package limit. Opening and editing speed depends on your device and document complexity. Local revision history has a 100 MB memory budget, so larger documents retain fewer undo revisions.
+
+Import one RIS file to load all its records into the Local library. Select individual references or Select all references, then Include selected in resources. Exact duplicates are reused automatically; near matches require choosing which references to keep. Batch inclusion supports Undo and does not insert citation occurrences.

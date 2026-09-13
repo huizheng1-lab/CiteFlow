@@ -94,13 +94,13 @@ function richControl(root, control, entries, parameters = {}) {
   }
 }
 export async function loadPackage(bytes) {
-  assert(bytes.length <= 25_000_000, 'DOCX input exceeds 25 MB');
+  assert(bytes.length <= 100_000_000, 'DOCX input exceeds 100 MB');
   const zip = await JSZip.loadAsync(bytes);
   const entries = Object.values(zip.files);
   assert(entries.length < 5000, 'DOCX has too many ZIP entries');
   assert(
-    entries.reduce((n, e) => n + (e._data?.uncompressedSize || 0), 0) < 100_000_000,
-    'DOCX uncompressed size exceeds limit',
+    entries.reduce((n, e) => n + (e._data?.uncompressedSize || 0), 0) <= 500_000_000,
+    'DOCX expanded size exceeds 500 MB',
   );
   assert(zip.file('word/document.xml'), 'Not a DOCX document');
   const main = await zip.file('word/document.xml').async('string');

@@ -341,3 +341,42 @@ test('Word editor supports typing formatting tables citations and DOCX download'
   await writeFile('test-results/editor-roundtrip.docx', bytes);
   await page.screenshot({ path: 'test-results/word-editor.png', fullPage: true });
 });
+
+test('one RIS file imports many references and includes the selected batch together', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('#new-document').click();
+  await expect(page.locator('#download')).toBeEnabled();
+  await page.locator('#tab-library').click();
+  const titles = [
+    'Glucose monitoring trial',
+    'Urban woodland cooling',
+    'Ovarian cancer biomarkers',
+  ];
+  const ris = titles
+    .map(
+      (title, i) =>
+        `TY  - JOUR\r\nTI  - ${title}\r\nAU  - Author${i}, Jane\r\nPY  - 2024\r\nER  -\r\n`,
+    )
+    .join('\r\n');
+  await page.locator('#import-library').setInputFiles({
+    name: 'many.ris',
+    mimeType: 'application/x-research-info-systems',
+    buffer: Buffer.from(ris),
+  });
+  await expect(page.locator('#library .source')).toHaveCount(3);
+  await expect(page.locator('#status')).toContainText('Imported 3 records');
+  await page.locator('#select-library').check();
+  await page.locator('[data-library-source]').last().uncheck();
+  await page.locator('#include-library').click();
+  await expect(page.locator('#sources .source')).toHaveCount(2);
+  await page.locator('#include-library').click();
+  await expect(page.locator('#sources .source')).toHaveCount(2);
+  await page.locator('#select-library').check();
+  await page.locator('#include-library').click();
+  await expect(page.locator('#sources .source')).toHaveCount(3);
+  await expect(page.locator('.citation-token')).toHaveCount(0);
+  await page.locator('#undo').click();
+  await expect(page.locator('#sources .source')).toHaveCount(2);
+});

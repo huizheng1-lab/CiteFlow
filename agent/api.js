@@ -234,8 +234,8 @@ export class FileAgent {
     const file = await this.bounded(input);
     const info = await stat(file);
     assert(
-      info.isFile() && info.size <= 25_000_000,
-      'Input must be a regular DOCX file of at most 25 MB',
+      info.isFile() && info.size <= 100_000_000,
+      'Input must be a regular DOCX file of at most 100 MB',
     );
     return readFile(file);
   }

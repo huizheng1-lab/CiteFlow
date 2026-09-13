@@ -145,3 +145,14 @@ test('APA bibliography preserves journal italics and hanging indents in DOCX', a
   assert.match(xml, /<w:i\s*\/>/);
   assert.match(xml, /w:hanging="720"/);
 });
+
+test('opens DOCX packages larger than the former 25 MB limit and rejects over 100 MB', async () => {
+  const original = await createDocx(['Large document with embedded media']);
+  const zip = await JSZip.loadAsync(original);
+  zip.file('word/media/large.bin', new Uint8Array(26_000_000));
+  const bytes = await zip.generateAsync({ type: 'uint8array', compression: 'STORE' });
+  assert(bytes.byteLength > 25_000_000);
+  const result = await inspectDocx(bytes);
+  assert.equal(result.paragraphs[0].text, 'Large document with embedded media');
+  await assert.rejects(inspectDocx(new Uint8Array(100_000_001)), /exceeds 100 MB/);
+});
