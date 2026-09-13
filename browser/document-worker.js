@@ -7,6 +7,7 @@ self.onmessage = ({ data }) => {
       const methods = {
         open: () => workspace.open(data.bytes, data.filename),
         inspect: () => workspace.inspect(),
+        citeSource: () => workspace.citeSource(data.source, data.anchor, data.leadingSpace),
         edit: () => workspace.edit(data.operations, data.options),
         undo: () => workspace.undo(),
         download: () => workspace.download(),

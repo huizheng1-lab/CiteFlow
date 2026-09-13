@@ -163,14 +163,58 @@ test('saved library imports RIS, BibTeX and XML offline and can cite imported so
     await page.evaluate(() => JSON.parse(localStorage.getItem('citeflow.library.v1')).length),
   ).toBe(3);
   await page.screenshot({ path: 'test-results/import-library.png', fullPage: true });
+  await page.locator('[data-paragraph="1"]').click();
   await page
     .locator('#library .source')
     .filter({ hasText: 'RIS imported source' })
-    .getByRole('button', { name: 'Add to document' })
+    .getByRole('button', { name: 'Cite here', exact: true })
     .click();
   await page.locator('#tab-sources').click();
-  await expect(page.locator('#sources')).toContainText('RIS imported source');
-  await page.locator('[data-paragraph="1"]').click();
-  await page.getByRole('button', { name: 'Cite here', exact: true }).click();
+  await expect(page.locator('#sources .source')).toHaveCount(1);
   await expect(page.locator('[data-paragraph="1"]')).toContainText('(1)');
+});
+
+test('duplicate sources can be merged, undone and deleted when unused', async ({ page }) => {
+  const { LocalWorkspace } = await import('../../browser/workspace.js');
+  const w = new LocalWorkspace();
+  await w.open(await createDocx(['One.', 'Two.']), 'duplicates.docx');
+  const paper = {
+    type: 'article-journal',
+    title: 'Duplicate publication',
+    author: [{ family: 'Smith' }],
+    issued: { 'date-parts': [[2024]] },
+    'container-title': 'Journal',
+  };
+  const result = await w.edit([
+    { type: 'source.upsert', source: paper },
+    { type: 'source.upsert', source: { ...paper, page: '1-9' } },
+  ]);
+  const [a, b] = result.results.map((x) => x.sourceId);
+  await w.edit([
+    { type: 'citation.insert', items: [{ id: a }], anchor: { exactText: 'One.' } },
+    { type: 'citation.insert', items: [{ id: b }], anchor: { exactText: 'Two.' } },
+    { type: 'bibliography.place' },
+  ]);
+  await page.goto('/');
+  await page.locator('#file').setInputFiles({
+    name: 'duplicates.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from(w.download()),
+  });
+  await expect(page.locator('#sources .source')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Delete unused source' }).first()).toBeDisabled();
+  await page.getByRole('button', { name: 'Merge duplicates', exact: true }).first().click();
+  await page.locator('[data-merge-source]').check();
+  await page.getByRole('button', { name: 'Merge selected duplicates', exact: true }).click();
+  await expect(page.locator('#sources .source')).toHaveCount(1);
+  await expect(page.locator('[data-paragraph="1"]')).toContainText('(1)');
+  await page.locator('#undo').click();
+  await expect(page.locator('#sources .source')).toHaveCount(2);
+  await page.locator('#tab-citations').click();
+  await page.getByRole('button', { name: 'Remove', exact: true }).last().click();
+  await page.locator('#tab-sources').click();
+  await page.getByRole('button', { name: 'Delete unused source', exact: true }).last().click();
+  await expect(page.locator('#sources .source')).toHaveCount(1);
+  await page.locator('#undo').click();
+  await expect(page.locator('#sources .source')).toHaveCount(2);
 });

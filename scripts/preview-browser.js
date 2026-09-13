@@ -12,12 +12,13 @@ const files = {
 http
   .createServer(async (req, res) => {
     try {
-      if (req.method !== 'GET' || !files[req.url]) {
+      const pathname = new URL(req.url, 'http://localhost').pathname;
+      if (req.method !== 'GET' || !files[pathname]) {
         res.writeHead(404);
         res.end();
         return;
       }
-      const f = files[req.url],
+      const f = files[pathname],
         mime = f.endsWith('.js')
           ? 'text/javascript'
           : f.endsWith('.css')

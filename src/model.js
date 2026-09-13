@@ -28,7 +28,17 @@ export function sourceKey(source) {
     return 'url:' + u.href;
   }
   // Do not merge different works on a title-only fuzzy match.
-  return 'record:' + hash(source);
+  const canonical = (value) =>
+    Array.isArray(value)
+      ? value.map(canonical)
+      : value && typeof value === 'object'
+        ? Object.fromEntries(
+            Object.keys(value)
+              .sort()
+              .map((key) => [key, canonical(value[key])]),
+          )
+        : value;
+  return 'record:' + hash(canonical(normalizeSource(source)));
 }
 export function normalizeSource(input) {
   assert(
@@ -122,6 +132,27 @@ export function apply(doc, op) {
       const sid = id();
       doc.sources[sid] = { ...s, id: sid };
       return { sourceId: sid, reused: false };
+    }
+    case 'source.remove': {
+      assert(Object.hasOwn(doc.sources, op.sourceId), 'Source not found', 404);
+      assert(
+        !doc.citations.some((c) => c.items.some((item) => item.id === op.sourceId)),
+        'This source is cited. Remove its citations or merge it into another source first.',
+        409,
+      );
+      delete doc.sources[op.sourceId];
+      return { removed: op.sourceId };
+    }
+    case 'source.merge': {
+      assert(op.from !== op.to, 'Choose two different sources');
+      assert(
+        Object.hasOwn(doc.sources, op.from) && Object.hasOwn(doc.sources, op.to),
+        'Both merge sources must exist',
+        404,
+      );
+      const result = apply(doc, { type: 'source.replace', from: op.from, to: op.to });
+      delete doc.sources[op.from];
+      return { ...result, removed: op.from, sourceId: op.to };
     }
     case 'source.update': {
       assert(Object.hasOwn(doc.sources, op.sourceId), 'Source not found', 404);

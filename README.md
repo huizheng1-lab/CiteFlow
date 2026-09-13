@@ -149,3 +149,9 @@ For maintainers, `scripts/publish-github.sh` verifies the existing repository an
 In **Saved library**, choose **Import references** and select a RIS, BibTeX, EndNote XML, PubMed XML, or JSON file. Processing stays local. Existing references are kept and duplicate identifiers are skipped; invalid imports leave the library unchanged. Files may contain up to 5,000 references and must be at most 5 MB. JSON backups remain supported. XML support covers EndNote exports and PubMed article records, not arbitrary XML schemas.
 
 Browser-free agents can use `sources_import` through the standalone CLI or stdio MCP; see [the local agent guide](docs/LOCAL_AGENT.md#import-reference-files-offline).
+
+### Delete or merge duplicate document sources
+
+In **Sources**, **Delete unused source** removes an uncited record. For a cited duplicate, click **Merge duplicates** on the copy to keep, review and select the duplicate copies, then choose **Merge selected duplicates**. Existing citations and the reference list update automatically. The kept record’s metadata and citation locators are preserved. **Undo** restores the previous document state; download the Word file to save changes. These actions affect document sources, not saved library entries.
+
+Saved library references can be cited directly: select a manuscript insertion point and click **Cite here** on the saved reference. CiteFlow adds or reuses its source automatically. One **Undo** reverses the insertion and any newly added source together.

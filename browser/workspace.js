@@ -37,6 +37,32 @@ export class LocalWorkspace {
       operations,
       repair,
     });
+    return this.commitEdit(edited);
+  }
+  async citeSource(source, anchor, leadingSpace = false) {
+    const before = await this.inspect();
+    const staged = await editDocx(this.bytes, {
+      expectedFileHash: before.fileHash,
+      expectedRevision: before.document.revision,
+      operations: [{ type: 'source.upsert', source }],
+    });
+    const verified = await inspectDocx(staged.bytes);
+    const edited = await editDocx(staged.bytes, {
+      expectedFileHash: verified.fileHash,
+      expectedRevision: verified.document.revision,
+      operations: [
+        {
+          type: 'citation.insert',
+          items: [{ id: staged.results[0].sourceId }],
+          anchor,
+          leadingSpace,
+        },
+      ],
+    });
+    // Commit both steps together: failed insertion leaves no unused source, and Undo restores both.
+    return this.commitEdit(edited);
+  }
+  async commitEdit(edited) {
     this.history.push(this.bytes);
     while (
       this.history.length > 10 ||

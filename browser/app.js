@@ -13,7 +13,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.5.1', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -102,6 +102,20 @@ async function edit(operations, options = {}) {
   status('Updated locally. Download the Word file to save your changes.');
   return state;
 }
+async function citeSavedSource(source) {
+  if (!state) throw new Error('Open a Word document first');
+  if (!anchor) throw new Error('Select an insertion point in the manuscript first');
+  status('Inserting citation on this device…');
+  state = await local('citeSource', {
+    source,
+    anchor: { ...anchor },
+    leadingSpace: !/\s/.test(anchor.paragraphText[anchor.endOffset - 1] || ''),
+  });
+  dirty = true;
+  setAnchor(null);
+  draw();
+  status('Citation inserted. Download the Word file to save your changes.');
+}
 function sourceCard(s, { saved = false } = {}) {
   const el = document.createElement('article');
   el.className = 'source';
@@ -115,12 +129,7 @@ function sourceCard(s, { saved = false } = {}) {
   const actions = document.createElement('div');
   actions.className = 'actions';
   if (saved) {
-    actions.append(
-      button('Add to document', async () => {
-        if (!state) throw new Error('Open a Word document first');
-        await edit([{ type: 'source.upsert', source: s }]);
-      }),
-    );
+    actions.append(button('Cite here', () => citeSavedSource(s)));
   } else {
     actions.append(
       button('Cite here', async () => {
@@ -141,6 +150,22 @@ function sourceCard(s, { saved = false } = {}) {
         status('Reference saved in this browser. Export a backup for safekeeping.');
       }),
     );
+  }
+  if (!saved) {
+    const count = state.document.citations.filter((c) =>
+      c.items.some((item) => item.id === s.id),
+    ).length;
+    const remove = button('Delete unused source', () =>
+      edit([{ type: 'source.remove', sourceId: s.id }]),
+    );
+    remove.disabled = count > 0;
+    remove.title = count
+      ? 'Remove its citations or merge it into another source first.'
+      : 'Remove this unused source from the document. Undo is available.';
+    actions.append(remove);
+    if (Object.keys(state.document.sources).length > 1)
+      actions.append(button('Merge duplicates', () => mergeEditor(s)));
+    p.append(document.createTextNode(` · ${count} citation${count === 1 ? '' : 's'}`));
   }
   el.append(h, p, actions);
   return el;
@@ -222,7 +247,45 @@ function field(name, label, value = '', kind = 'input') {
   $('#fields').append(l);
   return e;
 }
+function sourceSummary(source) {
+  return [
+    source.title,
+    (source.author || [])
+      .map((a) => a.literal || [a.family, a.given].filter(Boolean).join(', '))
+      .join('; '),
+    source.issued?.['date-parts']?.[0]?.[0] || 'Date missing',
+    source.type,
+    source['container-title'],
+    source.DOI,
+    source.PMID,
+    source.URL,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+function mergeEditor(keep) {
+  editing = { mergeInto: keep.id };
+  $('#editor-title').textContent = 'Merge duplicate sources';
+  $('#save-edit').textContent = 'Merge selected duplicates';
+  $('#fields').replaceChildren(
+    paragraph('Keep this source: ' + sourceSummary(keep)),
+    paragraph(
+      'Select duplicate copies to remove. Their citations will use the source above, keeping page numbers and citation locations. The kept source’s metadata stays unchanged. Undo is available.',
+    ),
+  );
+  for (const source of Object.values(state.document.sources).filter((s) => s.id !== keep.id)) {
+    const label = document.createElement('label');
+    label.className = 'check';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.dataset.mergeSource = source.id;
+    label.append(check, document.createTextNode(sourceSummary(source)));
+    $('#fields').append(label);
+  }
+  $('#editor').showModal();
+}
 function sourceEditor(source) {
+  $('#save-edit').textContent = 'Save changes';
   editing = { sourceId: source?.id, source: structuredClone(source || {}) };
   $('#editor-title').textContent = 'Reference details';
   $('#fields').replaceChildren();
@@ -267,6 +330,7 @@ function sourceEditor(source) {
   $('#editor').showModal();
 }
 function citationEditor(c) {
+  $('#save-edit').textContent = 'Save changes';
   editing = { citationId: c.id, items: structuredClone(c.items) };
   $('#editor-title').textContent = 'Citation group and pages';
   $('#fields').replaceChildren();
@@ -302,6 +366,19 @@ function citationEditor(c) {
   $('#editor').showModal();
 }
 $('#save-edit').onclick = guard(async () => {
+  if (editing.mergeInto) {
+    const selected = [...$('#fields').querySelectorAll('[data-merge-source]:checked')];
+    if (!selected.length) throw new Error('Select at least one duplicate to merge.');
+    await edit(
+      selected.map((e) => ({
+        type: 'source.merge',
+        from: e.dataset.mergeSource,
+        to: editing.mergeInto,
+      })),
+    );
+    $('#editor').close();
+    return;
+  }
   let op;
   if (editing.citationId) {
     const items = [...$('#fields').querySelectorAll('[data-source]:checked')].map((e) => {

@@ -23,7 +23,7 @@ async function main() {
   const api = new FileAgent(root, { allowOnline });
   const error = explainError;
   if (argv[0] === 'mcp') {
-    const server = new McpServer({ name: 'citeflow-local', version: '0.5.0' });
+    const server = new McpServer({ name: 'citeflow-local', version: '0.5.1' });
     server.resource('workflow', 'citeflow://workflow', async (uri) => ({
       contents: [{ uri: uri.href, mimeType: 'text/plain', text: workflow }],
     }));
@@ -57,7 +57,7 @@ async function main() {
           JSON.stringify(
             {
               ok: supported,
-              version: '0.5.0',
+              version: '0.5.1',
               node: process.version,
               workspace: directory,
               onlineLookup: allowOnline,

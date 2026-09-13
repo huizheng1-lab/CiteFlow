@@ -119,3 +119,12 @@ node citeflow-agent.cjs --root /your/workspace sources_import < import-request.j
 Create `import-request.json` containing `{"input":"references.ris"}`.
 
 The result contains `format`, `sources` (normalized CSL JSON), `parsed`, and `duplicates`. Review the sources, then pass a source to `docx_cite`, or use `source.upsert` operations in `docx_edit`. Importing does not insert citations or modify the manuscript. Optional `format`: `auto` (default), `ris`, `bibtex`, `xml`, or `json`. Maximum 5 MB / 5,000 records; malformed or unsupported records fail the whole import. XML supports EndNote and PubMed article exports; other XML schemas and PubMed book records are rejected. Citation metadata import does not verify the source or its support for a claim.
+
+## Remove or merge duplicate document sources
+
+Use `docx_edit` with its usual hash/revision guards and a new output file:
+
+- `{"type":"source.remove","sourceId":"UNUSED_ID"}` deletes an unused source. Cited sources are rejected.
+- `{"type":"source.merge","from":"DUPLICATE_ID","to":"KEEP_ID"}` redirects all citations to the retained source and removes the duplicate. The retained metadata is unchanged. Locators, prefixes and suffixes are preserved; identical items within a citation group are collapsed, while distinct locators are retained.
+
+Inspect and review metadata before merging: choosing two records asserts that they represent the same publication. Multiple merges may be supplied in one atomic edit.
