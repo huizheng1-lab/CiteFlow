@@ -16,7 +16,7 @@
       href="./agent-manifest.json"
       title="CLI and MCP agent manifest"
     />
-    <link rel="stylesheet" href="./style.css?v=0.6.5" />
+    <link rel="stylesheet" href="./style.css?v=0.6.6" />
   </head>
   <body>
     <header>
@@ -145,6 +145,13 @@
               in Sources.
             </p>
             <div class="actions">
+              <label for="export-format">Export format</label>
+              <select id="export-format">
+                <option value="json">JSON backup</option>
+                <option value="ris">RIS</option>
+                <option value="xml">EndNote XML</option>
+                <option value="bibtex">BibTeX</option>
+              </select>
               <button id="export-library">Export library</button
               ><label class="button"
                 >Import references<input
@@ -157,7 +164,9 @@
             </div>
             <p class="hint">
               A single RIS, BibTeX, or XML file can contain many references. Import the file once,
-              then select references to include together.
+              then select references to include together. Export includes all saved library
+              references. JSON retains the full reference data; other formats use their supported
+              fields and reference types.
             </p>
             <div class="actions">
               <label class="check"
@@ -237,6 +246,6 @@
         ><button id="save-settings" class="primary">Save settings</button>
       </div>
     </dialog>
-    <script type="module" src="./app.js?v=0.6.5"></script>
+    <script type="module" src="./app.js?v=0.6.6"></script>
   </body>
 </html>

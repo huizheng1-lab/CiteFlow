@@ -3,6 +3,34 @@ import { readFile } from 'node:fs/promises';
 import JSZip from 'jszip';
 import { createDocx, inspectDocx } from '../../src/docx.js';
 import { mendeleyDocx, citation, paper } from '../fixtures/mendeley.js';
+import { importSources } from '../../src/import-sources.js';
+
+test('Local library exports JSON, RIS, EndNote XML and BibTeX downloads without an open document', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.evaluate(
+    (records) => localStorage.setItem('citeflow.library.v1', JSON.stringify(records)),
+    [paper, { ...paper, title: 'Second library reference' }],
+  );
+  await page.reload();
+  await page.locator('#tab-library').click();
+  for (const [format, extension] of [
+    ['json', 'json'],
+    ['ris', 'ris'],
+    ['xml', 'xml'],
+    ['bibtex', 'bib'],
+  ]) {
+    await page.locator('#export-format').selectOption(format);
+    const downloading = page.waitForEvent('download');
+    await page.locator('#export-library').click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe(`citeflow-library.${extension}`);
+    const parsed = importSources(await readFile(await download.path(), 'utf8'));
+    expect(parsed.sources).toHaveLength(2);
+    await expect(page.locator('#status')).toContainText('Exported 2 saved library references');
+  }
+});
 
 test('incomplete bibliography is preserved with a persistent review notice and complete Word download', async ({
   page,
@@ -14,13 +42,11 @@ test('incomplete bibliography is preserved with a persistent review notice and c
       s.replace('</w:sdtContent></w:sdt><w:sectPr/>', extra + '</w:sdtContent></w:sdt><w:sectPr/>'),
   });
   await page.goto('/');
-  await page
-    .locator('#file')
-    .setInputFiles({
-      name: 'unmatched.docx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      buffer: Buffer.from(bytes),
-    });
+  await page.locator('#file').setInputFiles({
+    name: 'unmatched.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from(bytes),
+  });
   await expect(page.locator('#status')).toContainText('Preserved 2 original bibliography entries');
   await expect(page.locator('#bibliography-review')).toContainText(
     '1 entries need metadata review',
@@ -36,13 +62,11 @@ test('incomplete bibliography is preserved with a persistent review notice and c
   const inspected = await inspectDocx(saved);
   expect(inspected.document.bibliographyReview.entries).toHaveLength(2);
   expect(inspected.document.bibliographyReview.unmatchedCount).toBe(1);
-  await page
-    .locator('#file')
-    .setInputFiles({
-      name: 'saved.docx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      buffer: saved,
-    });
+  await page.locator('#file').setInputFiles({
+    name: 'saved.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: saved,
+  });
   await expect(page.locator('#bibliography-review')).toBeVisible();
   await expect(page.locator('#bibliography-review')).toContainText('2 original entries');
   await expect(page.locator('#style')).toBeDisabled();

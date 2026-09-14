@@ -2,6 +2,7 @@ import { exactSourceKey } from '../src/model.js';
 import { WordEditor } from './word-editor.js';
 import { reviewSources } from '../src/source-duplicates.js';
 import { importSources } from '../src/import-sources.js';
+import { exportFormats } from '../src/export-sources.js';
 import { LocalLibrary } from './library.js';
 import { lookupSource } from './lookup.js';
 import { insertionFromSelection } from './selection.js';
@@ -17,7 +18,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.5', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.6', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -726,9 +727,14 @@ $('#include-library').onclick = guard(async () => {
   if (!ids.size) throw new Error('Select references from the Local library first.');
   await includeSavedSources(library.read().filter((source) => ids.has(exactSourceKey(source))));
 });
-$('#export-library').onclick = guard(() =>
-  download(library.export(), 'citeflow-library.json', 'application/json'),
-);
+$('#export-library').onclick = guard(() => {
+  const format = $('#export-format').value;
+  const file = exportFormats[format];
+  download(library.export(format), `citeflow-library.${file.extension}`, file.mimeType);
+  status(
+    `Exported ${library.read().length} saved library references as ${format === 'xml' ? 'EndNote XML' : format.toUpperCase()}.`,
+  );
+});
 $('#import-library').onchange = guard(async (e) => {
   const file = e.target.files[0];
   if (!file) return;

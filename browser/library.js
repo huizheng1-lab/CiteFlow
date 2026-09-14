@@ -1,5 +1,6 @@
 import { importSources } from '../src/import-sources.js';
 import { normalizeSource, exactSourceKey, assert } from '../src/model.js';
+import { exportSources } from '../src/export-sources.js';
 export class LocalLibrary {
   constructor(storage = globalThis.localStorage) {
     this.storage = storage;
@@ -26,8 +27,8 @@ export class LocalLibrary {
     this.storage.setItem('citeflow.library.v1', JSON.stringify(items));
     return old || normalized;
   }
-  export() {
-    return JSON.stringify({ schemaVersion: 1, sources: this.read() }, null, 2);
+  export(format = 'json') {
+    return exportSources(this.read(), format);
   }
   import(raw) {
     return this.include(importSources(raw).sources);

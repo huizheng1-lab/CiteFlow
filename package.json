@@ -1,6 +1,6 @@
 {
   "name": "@digimatrix-labs/citeflow",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "private": true,
   "type": "module",
   "description": "Document-centered citations for humans and AI agents",
