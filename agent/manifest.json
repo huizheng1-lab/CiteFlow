@@ -1,6 +1,6 @@
 {
   "name": "CiteFlow Local Agent",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "download": "https://www.rerioa.com/CiteFlow/citeflow-agent.cjs",
   "checksum": "https://www.rerioa.com/CiteFlow/citeflow-agent.sha256",
   "instructions": "https://www.rerioa.com/CiteFlow/AGENT_GUIDE.md",

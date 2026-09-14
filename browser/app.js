@@ -17,7 +17,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.2', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.3', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -114,13 +114,15 @@ async function openFile(file) {
     filename: file.name,
   });
   state = result;
-  dirty = false;
+  dirty = Boolean(result.importReport);
   setAnchor(null);
   draw();
   status(
-    result.editor.editable
-      ? 'Opened locally. Type in the document to edit it. Protected Word content is preserved.'
-      : 'This document has tracked changes. Accept them in a copy before editing.',
+    result.importReport
+      ? `Imported ${result.importReport.citationCount} Mendeley citation groups and ${result.importReport.sourceCount} references into CiteFlow, formatted in Vancouver. Your original file is unchanged. Download the Word file to save this converted copy.`
+      : result.editor.editable
+        ? 'Opened locally. Type in the document to edit it. Protected Word content is preserved.'
+        : 'This document has tracked changes. Accept them in a copy before editing.',
   );
 }
 async function edit(operations, options = {}) {

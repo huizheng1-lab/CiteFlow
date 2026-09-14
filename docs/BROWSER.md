@@ -89,6 +89,12 @@ It has no persistent storage bindings. It returns only normalized citation metad
 
 Use **Export for collaborators** to download a local ZIP containing an EndNote bulk-conversion document or experimental Mendeley Desktop-field bridge, the original CiteFlow file, cited source metadata, and recipient instructions. Export leaves the current document and undo history unchanged. Neither route has yet passed actual Word add-in acceptance testing. See [HANDOFF.md](HANDOFF.md).
 
+### Open a Mendeley Cite document
+
+Version 0.6.3 imports Mendeley Cite v3 citation content controls with embedded source metadata. Open the `.docx` normally: citation groups, reference data, page locators, prefixes/suffixes, and the existing bibliography become linked CiteFlow citations in the local working copy. The opening message reports the imported groups and references. Citations and the bibliography are reformatted in Vancouver; choose APA or Harvard afterward if preferred. Download the converted Word file to save it. The original file on disk is unchanged.
+
+This converts management of those citations to CiteFlow; it is not simultaneous editing with Mendeley. Unknown versions, legacy fields, missing or conflicting metadata, manual citation overrides, tracked changes, mixed citation managers, and citations in footnotes/endnotes/headers/footers are rejected instead of silently importing plain text. Flattened citation text cannot be linked without embedded metadata. Mendeley export remains experimental and separate from this import support.
+
 ## Write and format documents (0.6)
 
 Choose **New document** or open a `.docx`, then type directly in the document. Select text for bold, italic, or underline. Use the paragraph menu for headings, and toolbar buttons for alignment, lists, and tables. Table controls add or remove rows and columns at the cursor. Undo and Redo cover typing and applied document operations. **Apply text edits** commits text changes locally; citation actions and downloads also apply pending edits automatically. Download the Word file to save your work.

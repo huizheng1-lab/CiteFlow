@@ -6,6 +6,7 @@ import { assert, apply, newDocument, validate } from './model.js';
 import { format } from './format.js';
 import { replaceWordContent } from './word-editor.js';
 import { richRuns } from './rich-text.js';
+import { hasForeignCitations, importMendeleyControls } from './mendeley.js';
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
   CF = 'https://digimatrix-labs.org/citeflow/v1',
   REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -135,6 +136,14 @@ export async function inspectDocx(bytes) {
       managed: hasManagedAncestor(p),
     })),
     issues: [
+      ...(hasForeignCitations(root)
+        ? [
+            {
+              code: 'foreign-citations',
+              message: 'Citations belong to another citation manager and need conversion.',
+            },
+          ]
+        : []),
       ...validate(doc),
       ...ids.filter((x, i) => ids.indexOf(x) !== i).map((id) => ({ code: 'duplicate-anchor', id })),
       ...ids
@@ -250,12 +259,8 @@ export async function editDocx(
     !['ins', 'del', 'moveFrom', 'moveTo'].some((t) => all(root, t).length),
     'Tracked changes are present. Accept/reject changes in a copy before using headless editing.',
   );
-  const fieldInstructions = all(root, 'instrText')
-    .map((x) => x.textContent)
-    .concat(all(root, 'fldSimple').map((x) => attr(x, 'instr') || ''))
-    .join(' ');
   assert(
-    !/CSL_CITATION|EN\.CITE|MENDELEY|\bCITATION\b|\bBIBLIOGRAPHY\b/i.test(fieldInstructions),
+    !hasForeignCitations(root),
     'Another citation manager controls fields in this document. Convert a copy before using CiteFlow.',
   );
   const current = controls(root),
@@ -394,6 +399,31 @@ export async function editDocx(
       [escape(doc.bibliography.heading), ...rich.bibliography],
       rich.bibliographyParameters,
     );
+  return {
+    bytes: await savePackage({ zip, root, doc, metadataPath }),
+    document: doc,
+    results,
+    rendered,
+  };
+}
+
+// Convert only an in-memory copy. A failed conversion leaves the caller's bytes
+// and any previously open workspace unchanged.
+export async function importMendeleyDocx(bytes) {
+  const pack = await loadPackage(bytes);
+  const report = await importMendeleyControls(pack);
+  if (!report) return { bytes, report: null };
+  const staged = await savePackage(pack);
+  const result = await editDocx(staged, {
+    expectedFileHash: fileHash(staged),
+    expectedRevision: pack.doc.revision,
+    operations: [],
+    repair: true,
+  });
+  return { bytes: result.bytes, report: { ...report, style: result.document.style } };
+}
+
+async function savePackage({ zip, root, doc, metadataPath }) {
   zip.file('word/document.xml', out(root));
   zip.file(
     metadataPath,
@@ -430,12 +460,7 @@ export async function editDocx(
     types.documentElement.appendChild(def);
   }
   zip.file('[Content_Types].xml', out(types));
-  return {
-    bytes: await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }),
-    document: doc,
-    results,
-    rendered,
-  };
+  return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 }
 export async function createDocx(paragraphs = ['Start writing here.']) {
   const z = new JSZip();

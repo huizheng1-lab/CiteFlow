@@ -2,6 +2,48 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import JSZip from 'jszip';
 import { createDocx, inspectDocx } from '../../src/docx.js';
+import { mendeleyDocx, citation, paper } from '../fixtures/mendeley.js';
+
+test('Mendeley Word citations become editable groups and survive style change and download', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .locator('#file')
+    .setInputFiles({
+      name: 'mendeley.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      buffer: Buffer.from(
+        await mendeleyDocx([
+          citation(),
+          citation([{ id: paper.id, itemData: paper, locator: '5' }]),
+        ]),
+      ),
+    });
+  await expect(page.locator('#status')).toContainText(
+    'Imported 2 Mendeley citation groups and 1 references',
+  );
+  await expect(page.locator('.citation-token')).toHaveCount(2);
+  await expect(page.locator('#sources .source')).toHaveCount(1);
+  await page.locator('#style').selectOption('apa');
+  await expect(page.locator('.citation-token').first()).toContainText('Källberg');
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#download').click();
+  const file = await downloaded;
+  const bytes = await readFile(await file.path());
+  const result = await inspectDocx(bytes);
+  expect(result.document.citations).toHaveLength(2);
+  expect(result.issues).toEqual([]);
+  await page
+    .locator('#file')
+    .setInputFiles({
+      name: 'converted.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      buffer: bytes,
+    });
+  await expect(page.locator('.citation-token')).toHaveCount(2);
+  await expect(page.locator('.citation-token').first()).toContainText('Källberg');
+});
 const secret = 'PRIVATE MANUSCRIPT SENTINEL 87b52';
 async function open(page) {
   const bytes = await createDocx([secret, 'A finding.', 'Place references here.']);

@@ -1,4 +1,4 @@
-import { inspectDocx, editDocx, loadPackage, createDocx } from '../src/docx.js';
+import { inspectDocx, editDocx, loadPackage, createDocx, importMendeleyDocx } from '../src/docx.js';
 import { DOMParser } from '@xmldom/xmldom';
 import { wordEditorDocument } from '../src/word-editor.js';
 import { format } from '../src/format.js';
@@ -15,13 +15,15 @@ export class LocalWorkspace {
   }
   async open(bytes, filename) {
     assert(bytes instanceof Uint8Array, 'Expected local file bytes');
+    const imported = await importMendeleyDocx(bytes);
+    bytes = imported.bytes;
     const verified = await inspectDocx(bytes);
     format(verified.document);
     this.bytes = bytes.slice();
     this.filename = filename;
     this.history = [];
     this.future = [];
-    return this.inspect();
+    return { ...(await this.inspect()), importReport: imported.report };
   }
   async inspect() {
     assert(this.bytes, 'Open a Word document first');

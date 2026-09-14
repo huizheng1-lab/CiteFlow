@@ -65,3 +65,5 @@ Version 0.4.0 adds a standalone bundle tested from a directory outside the sourc
 # Agent discovery validation
 
 Version 0.4.1: 45 Node tests and 3 Chromium tests passed. The standalone bundle's per-tool help exposes the same schemas as the published JSON, doctor confirms browser-free use, the downloadable example performs real citation insertion offline, and MCP serves workflow instructions. Network-policy failures now include an actionable offline metadata route; the DNS protection itself is unchanged.
+
+Version 0.6.3: Mendeley Cite v3 content-control imports were verified with a private document containing two citation groups, four references, and one bibliography. Its prose, non-citation layout XML, unrelated package parts, and original bytes were preserved. Synthetic tests cover repeated references, Unicode, locators, style changes, download/reopen, removal/undo, and atomic rejection of unsupported inputs. All 9 Chromium workflows passed. On Windows, 68 of 70 Node tests passed; the two pre-existing failures require Unix /etc/hosts or privileged symlink creation. No private document or extracted reference metadata is included in the repository.

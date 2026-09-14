@@ -45,4 +45,4 @@ The caller must persist the returned portable citation snapshot after successful
 - A DOCX produced by the headless editor remains readable without CiteFlow installed. The metadata remains embedded for later editing.
 - Portable JSON retains citation source identities and metadata but does not contain manuscript prose or guarantee transferred anchors.
 - Plain-text copying exports a static reference list. It intentionally has no live links back to the tool.
-- EndNote/Mendeley/Zotero field migration and automatic Word↔Google conversion remain future work.
+- The browser imports Mendeley Cite v3 content controls with embedded source data into a CiteFlow working copy. Legacy Mendeley fields, EndNote/Zotero migration, and automatic Word↔Google conversion remain future work. See [browser import details](BROWSER.md#open-a-mendeley-cite-document).

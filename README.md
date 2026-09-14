@@ -12,6 +12,8 @@ This is an **initial working release**, not a production-certified Word or Googl
 
 ## Browser app: documents stay on your computer
 
+**Mendeley import:** open a Word file containing Mendeley Cite v3 citations to convert its embedded references, citation groups, and bibliography to linked CiteFlow citations. Conversion happens locally and starts with Vancouver formatting; download a separate converted copy. See [supported formats and limits](docs/BROWSER.md#open-a-mendeley-cite-document).
+
 **Version 0.6 adds document editing in the browser.** Create a blank document or edit an existing Word file: type, delete, rewrite, format text and paragraphs, add headings, lists, and tables, and undo or redo changes. Open a `.docx` without uploading it, select citation positions, add/remove/edit citations, place a reference list, and download the updated file. Citation processing runs in a Web Worker on your device. Saved references stay in browser storage; document bytes stay in memory until downloaded or closed.
 
 The editor preserves citation controls and keeps the reference list synchronized. Images, fields, and complex Word structures appear as protected placeholders; tracked-change documents remain read-only. This is a local editor, with no cloud autosave or simultaneous collaboration. Download the Word file to persist changes.
