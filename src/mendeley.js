@@ -1,4 +1,5 @@
-import { apply, assert, exactSourceKey } from './model.js';
+import { apply, assert, exactSourceKey, doi } from './model.js';
+import { XMLSerializer } from '@xmldom/xmldom';
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const all = (n, name) => Array.from(n.getElementsByTagNameNS(W, name));
@@ -65,6 +66,7 @@ export async function importMendeleyControls({ zip, root, doc }) {
     unsupported,
   );
   const sourceIds = new Map();
+  const repairedSources = new Set();
   for (const [index, node] of citations.entries()) {
     assert(
       node.parentNode.localName === 'p' &&
@@ -116,9 +118,17 @@ export async function importMendeleyControls({ zip, root, doc }) {
           !item.authorOnly,
         unsupported,
       );
-      const source = item.itemData;
-      const key = exactSourceKey(source);
+      let source, key;
+      try {
+        source = splitEmbeddedIdentifiers(item.itemData);
+        key = exactSourceKey(source);
+      } catch (error) {
+        throw new Error(
+          `Mendeley citation ${index + 1}: ${error.message}. Check the reference metadata in Mendeley and retry.`,
+        );
+      }
       const externalId = String(item.id ?? source.id ?? key);
+      if (source.DOI !== item.itemData.DOI) repairedSources.add(externalId);
       let existing = sourceIds.get(externalId);
       assert(
         !existing || existing.key === key,
@@ -151,6 +161,7 @@ export async function importMendeleyControls({ zip, root, doc }) {
     );
     retag(node, 'citeflow:bibliography');
   }
+  const inactiveEndNoteFields = archiveEmptyEndNoteFields(root, doc);
   assert(
     !hasForeignCitations(root),
     'Other citation fields remain in this document. The document was not converted.',
@@ -160,7 +171,84 @@ export async function importMendeleyControls({ zip, root, doc }) {
     citationCount: citations.length,
     sourceCount: Object.keys(doc.sources).length,
     bibliographyCount: bibliographies.length,
+    ...(repairedSources.size ? { metadataRepairs: repairedSources.size } : {}),
+    ...(inactiveEndNoteFields ? { inactiveEndNoteFields } : {}),
   };
+}
+
+// Old EndNote field remnants can coexist with modern citations. Only complete,
+// empty, run-only fields within one paragraph qualify; visible or complex
+// fields still block conversion. Keep their exact XML in CiteFlow metadata.
+function archiveEmptyEndNoteFields(root, doc) {
+  const archived = [];
+  for (const paragraph of all(root, 'p')) {
+    let nodes = [],
+      stack = [],
+      codes = [],
+      safe = true;
+    for (const node of Array.from(paragraph.childNodes)) {
+      const markers = node.nodeType === 1 ? all(node, 'fldChar') : [];
+      const type = markers[0]?.getAttributeNS(W, 'fldCharType');
+      if (!stack.length && type !== 'begin') continue;
+      if (type === 'begin') stack.push('');
+      nodes.push(node);
+      safe &&=
+        node.namespaceURI === W &&
+        node.localName === 'r' &&
+        markers.length <= 1 &&
+        Array.from(node.childNodes)
+          .filter((n) => n.nodeType === 1)
+          .every(
+            (n) => n.namespaceURI === W && ['rPr', 'instrText', 'fldChar'].includes(n.localName),
+          );
+      if (stack.length)
+        stack[stack.length - 1] += all(node, 'instrText')
+          .map((n) => n.textContent)
+          .join('');
+      if (type !== 'end') continue;
+      codes.push(stack.pop());
+      if (stack.length) continue;
+      if (safe && codes.every((code) => /^\s*ADDIN EN\.CITE(?:\.DATA)?(?:\s|$)/.test(code))) {
+        archived.push(nodes.map((n) => new XMLSerializer().serializeToString(n)).join(''));
+        for (const n of nodes) n.parentNode.removeChild(n);
+      }
+      nodes = [];
+      codes = [];
+      safe = true;
+    }
+  }
+  if (archived.length) doc.importProvenance = { inactiveEndNoteFields: archived };
+  return archived.length;
+}
+
+// Some imported Mendeley records store labelled PubMed export lines in DOI.
+// Split only an unambiguous DOI plus PMID/PMCID lines. Never truncate unknown
+// text or discard an identifier; conflicting values still fail validation.
+function splitEmbeddedIdentifiers(input) {
+  if (typeof input.DOI !== 'string' || !/[\r\n]/.test(input.DOI)) return input;
+  const lines = input.DOI.trim()
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 2 || !/^10\.\d{4,9}\/\S+$/.test(doi(lines[0]))) return input;
+  const identifiers = [];
+  for (const line of lines.slice(1)) {
+    const match = /^(PMID|PMCID)\s*(?:-\s*-?|:)\s*(PMC\d+|\d+)$/i.exec(line);
+    if (!match) return input;
+    const key = match[1].toUpperCase(),
+      value = match[2].toUpperCase();
+    if (!(key === 'PMID' ? /^\d+$/ : /^PMC\d+$/).test(value)) return input;
+    identifiers.push([key, value]);
+  }
+  const source = { ...input, DOI: doi(lines[0]) };
+  for (const [key, value] of identifiers) {
+    assert(
+      !source[key] || String(source[key]).trim() === value,
+      `Conflicting ${key} values in DOI metadata`,
+    );
+    source[key] = value;
+  }
+  return source;
 }
 
 function retag(node, value) {

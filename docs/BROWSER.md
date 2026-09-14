@@ -104,3 +104,5 @@ Citation tokens can be moved, copied, or removed while retaining managed source 
 Large Word files: the compressed file limit is 100 MB, with a separate 500 MB expanded-package limit. Opening and editing speed depends on your device and document complexity. Local revision history has a 100 MB memory budget, so larger documents retain fewer undo revisions.
 
 Import one RIS file to load all its records into the Local library. Select individual references or Select all references, then Include selected in resources. Exact duplicates are reused automatically; near matches require choosing which references to keep. Batch inclusion supports Undo and does not insert citation occurrences.
+
+Version 0.6.4 also separates a valid DOI followed by explicitly labeled PMID/PMCID export lines, preserving each identifier. Unknown trailing text and conflicting identifiers still require correction. Complete empty EndNote fields with no visible content can coexist with the imported Mendeley citations: their XML is retained in the converted document's CiteFlow metadata, and the opening message reports their count. Visible EndNote citations remain unsupported.

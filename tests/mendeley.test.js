@@ -131,3 +131,62 @@ test('Mendeley documents without a bibliography import without adding one', asyn
   const { root } = await loadPackage(w.download());
   assert(!root.toString().includes('citeflow:bibliography'));
 });
+
+test('Mendeley DOI export lines are separated without losing PubMed identifiers', async () => {
+  const source = {
+    ...paper,
+    DOI: 'https://doi.org/10.1234/example\r\nPMID- - 123456\r\nPMCID- - PMC987654',
+  };
+  const w = new LocalWorkspace();
+  const result = await w.open(
+    await mendeleyDocx([citation([{ id: paper.id, itemData: source }])]),
+    'identifiers.docx',
+  );
+  const imported = Object.values(result.document.sources)[0];
+  assert.equal(imported.DOI, '10.1234/example');
+  assert.equal(imported.PMID, '123456');
+  assert.equal(imported.PMCID, 'PMC987654');
+  assert.equal(result.importReport.metadataRepairs, 1);
+  for (const bad of [
+    { ...source, DOI: '10.1234/example\nUnknown extra text' },
+    { ...source, PMID: '999999' },
+    { ...source, DOI: '10.1234/example\nPMID- invalid' },
+  ]) {
+    await assert.rejects(
+      w.open(await mendeleyDocx([citation([{ id: paper.id, itemData: bad }])]), 'bad.docx'),
+      /Mendeley citation 1:/,
+    );
+    assert.equal((await w.inspect()).filename, 'identifiers.docx');
+  }
+});
+
+const emptyField = (code, result = '') =>
+  `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText>${code}</w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>${result}<w:r><w:fldChar w:fldCharType="end"/></w:r>`;
+test('empty EndNote remnants are archived losslessly while visible fields still block import', async () => {
+  const nested = emptyField(' ADDIN EN.CITE ', emptyField(' ADDIN EN.CITE.DATA '));
+  const options = (field) => ({ transform: (raw) => raw.replace('</w:p>', field + '</w:p>') });
+  const bytes = await mendeleyDocx([citation()], options(nested));
+  const original = bytes.slice();
+  const w = new LocalWorkspace();
+  const imported = await w.open(bytes, 'remnants.docx');
+  assert.equal(imported.importReport.inactiveEndNoteFields, 1);
+  assert.equal(imported.document.citations.length, 1);
+  const archive = imported.document.importProvenance.inactiveEndNoteFields;
+  assert.equal(archive.length, 1);
+  assert.match(archive[0], /ADDIN EN.CITE.DATA/);
+  assert.doesNotMatch((await loadPackage(w.download())).root.toString(), /ADDIN EN.CITE/);
+  const reopened = await new LocalWorkspace().open(w.download(), 'saved.docx');
+  assert.deepEqual(reopened.document.importProvenance.inactiveEndNoteFields, archive);
+  assert.deepEqual(bytes, original);
+  for (const field of [
+    emptyField(' ADDIN EN.CITE ', '<w:r><w:t>[8]</w:t></w:r>'),
+    emptyField(' ADDIN EN.CITE ', '<w:r><w:drawing/></w:r>'),
+    emptyField(' ADDIN EN.CITE ', '<w:r><w:tab/></w:r>'),
+    emptyField(' ADDIN CSL_CITATION '),
+    nested.replace(/<w:r><w:fldChar w:fldCharType="end"\/><\/w:r>$/, ''),
+  ])
+    await assert.rejects(
+      w.open(await mendeleyDocx([citation()], options(field)), 'visible.docx'),
+      /Other citation fields/,
+    );
+});

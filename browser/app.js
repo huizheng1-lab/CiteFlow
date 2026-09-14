@@ -17,7 +17,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.3', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.4', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -119,7 +119,7 @@ async function openFile(file) {
   draw();
   status(
     result.importReport
-      ? `Imported ${result.importReport.citationCount} Mendeley citation groups and ${result.importReport.sourceCount} references into CiteFlow, formatted in Vancouver. Your original file is unchanged. Download the Word file to save this converted copy.`
+      ? `Imported ${result.importReport.citationCount} Mendeley citation groups and ${result.importReport.sourceCount} references into CiteFlow, formatted in Vancouver. ${result.importReport.metadataRepairs ? `Separated DOI and PubMed identifiers in ${result.importReport.metadataRepairs} reference(s). ` : ''}${result.importReport.inactiveEndNoteFields ? `Preserved metadata from ${result.importReport.inactiveEndNoteFields} empty EndNote fields. ` : ''}Your original file is unchanged. Download the Word file to save this converted copy.`
       : result.editor.editable
         ? 'Opened locally. Type in the document to edit it. Protected Word content is preserved.'
         : 'This document has tracked changes. Accept them in a copy before editing.',
