@@ -8,6 +8,9 @@ import { importSources } from '../../src/import-sources.js';
 test('Local library exports JSON, RIS, EndNote XML and BibTeX downloads without an open document', async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    window.showSaveFilePicker = undefined;
+  });
   await page.goto('/');
   await page.evaluate(
     (records) => localStorage.setItem('citeflow.library.v1', JSON.stringify(records)),
@@ -30,6 +33,73 @@ test('Local library exports JSON, RIS, EndNote XML and BibTeX downloads without 
     expect(parsed.sources).toHaveLength(2);
     await expect(page.locator('#status')).toContainText('Exported 2 saved library references');
   }
+});
+
+test('library Save As picker receives correct extensions and writes before reporting success', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.savedExports = [];
+    window.showSaveFilePicker = async (options) => {
+      const entry = { options, text: '', closed: false, active: navigator.userActivation.isActive };
+      window.savedExports.push(entry);
+      return {
+        name: 'Chosen file',
+        createWritable: async () => ({
+          write: async (blob) => {
+            entry.text = await blob.text();
+          },
+          close: async () => {
+            entry.closed = true;
+          },
+          abort: async () => {},
+        }),
+      };
+    };
+  });
+  await page.goto('/');
+  await page.evaluate(
+    (record) => localStorage.setItem('citeflow.library.v1', JSON.stringify([record])),
+    paper,
+  );
+  await page.reload();
+  await page.locator('#tab-library').click();
+  for (const [format, extension] of [
+    ['json', 'json'],
+    ['ris', 'ris'],
+    ['xml', 'xml'],
+    ['bibtex', 'bib'],
+  ]) {
+    await page.locator('#export-format').selectOption(format);
+    await page.locator('#export-library').click();
+    await expect(page.locator('#status')).toContainText('Saved 1 library references');
+    const result = await page.evaluate(() => window.savedExports.at(-1));
+    expect(result.options.suggestedName).toBe(`citeflow-library.${extension}`);
+    expect(result.closed).toBe(true);
+    expect(result.active).toBe(true);
+    expect(importSources(result.text).sources).toHaveLength(1);
+  }
+  await page.evaluate(() => {
+    window.showSaveFilePicker = async () => {
+      throw new DOMException('Cancelled', 'AbortError');
+    };
+  });
+  await page.locator('#export-library').click();
+  await expect(page.locator('#status')).toContainText('Export cancelled');
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('citeflow.library.v1')).length),
+  ).toBe(1);
+  await page.evaluate(() => {
+    window.showSaveFilePicker = async () => ({
+      createWritable: async () => {
+        throw new Error('Permission denied');
+      },
+    });
+  });
+  await page.locator('#export-library').click();
+  await expect(page.locator('#status')).toContainText(
+    'Could not save the library: Permission denied',
+  );
 });
 
 test('incomplete bibliography is preserved with a persistent review notice and complete Word download', async ({

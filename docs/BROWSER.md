@@ -114,3 +114,5 @@ Version 0.6.5 compares the original bibliography with embedded Mendeley source r
 ### Export the Local library
 
 In Local library, choose JSON backup, RIS, EndNote XML, or BibTeX in Export format, then click Export library. This exports every saved library reference to a local file and does not require an open Word document. Export does not modify the library. JSON remains the full reference backup. RIS/XML/BibTeX use the fields and reference types supported by those exchange formats; generic or dataset entries may become generic BibTeX records. Empty exchange-format exports show a clear message. Bibliography-only text awaiting metadata review is not a saved library record.
+
+Version 0.6.7 requests the browser's Save As picker for library exports when available. You choose a filename and folder; the selected format supplies the extension. Success is reported only after writing finishes. Cancel leaves the library unchanged. Browsers without this picker use their normal download settings and show an explicit message explaining where to look. Library export does not flush or modify an open Word document.

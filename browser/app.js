@@ -2,7 +2,7 @@ import { exactSourceKey } from '../src/model.js';
 import { WordEditor } from './word-editor.js';
 import { reviewSources } from '../src/source-duplicates.js';
 import { importSources } from '../src/import-sources.js';
-import { exportFormats } from '../src/export-sources.js';
+import { exportFormats, exportSources } from '../src/export-sources.js';
 import { LocalLibrary } from './library.js';
 import { lookupSource } from './lookup.js';
 import { insertionFromSelection } from './selection.js';
@@ -18,7 +18,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.6', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.7', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -727,14 +727,61 @@ $('#include-library').onclick = guard(async () => {
   if (!ids.size) throw new Error('Select references from the Local library first.');
   await includeSavedSources(library.read().filter((source) => ids.has(exactSourceKey(source))));
 });
-$('#export-library').onclick = guard(() => {
-  const format = $('#export-format').value;
-  const file = exportFormats[format];
-  download(library.export(format), `citeflow-library.${file.extension}`, file.mimeType);
-  status(
-    `Exported ${library.read().length} saved library references as ${format === 'xml' ? 'EndNote XML' : format.toUpperCase()}.`,
-  );
-});
+// Keep the picker on the original click's activation. Library export does not
+// depend on flushing the Word worker or on an open manuscript.
+$('#export-library').onclick = async (event) => {
+  event.preventDefault();
+  if (busy) return;
+  busy = true;
+  enabled();
+  try {
+    const format = $('#export-format').value,
+      file = exportFormats[format];
+    const sources = library.read(),
+      filename = `citeflow-library.${file.extension}`;
+    if (format !== 'json' && !sources.length)
+      throw new Error(
+        'The Local library is empty. Save references to the library before exporting.',
+      );
+    const label = format === 'xml' ? 'EndNote XML' : format.toUpperCase();
+    if (typeof window.showSaveFilePicker === 'function') {
+      status('Choose where to save your exported library…');
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: label + ' references',
+            accept: { [file.mimeType]: ['.' + file.extension] },
+          },
+        ],
+      });
+      status('Saving the exported library…');
+      const content = exportSources(sources, format);
+      const writable = await handle.createWritable();
+      try {
+        await writable.write(new Blob([content], { type: file.mimeType + ';charset=utf-8' }));
+        await writable.close();
+      } catch (error) {
+        try {
+          await writable.abort();
+        } catch {}
+        throw error;
+      }
+      status(`Saved ${sources.length} library references to ${handle.name || filename}.`);
+    } else {
+      download(exportSources(sources, format), filename, file.mimeType);
+      status(
+        `Exported ${sources.length} saved library references as ${label}. This browser uses its download settings to choose the save location; check Downloads if no dialog appears.`,
+      );
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') status('Export cancelled. Your library is unchanged.');
+    else status('Could not save the library: ' + error.message, true);
+  } finally {
+    busy = false;
+    enabled();
+  }
+};
 $('#import-library').onchange = guard(async (e) => {
   const file = e.target.files[0];
   if (!file) return;
