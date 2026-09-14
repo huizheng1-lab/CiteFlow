@@ -36,8 +36,22 @@ export async function mendeleyDocx(payloads = [citation()], options = {}) {
   if (options.bibliography !== false)
     raw = raw.replace(
       '<w:sectPr/>',
-      control('MENDELEY_BIBLIOGRAPHY', '<w:p><w:r><w:t>Old bibliography</w:t></w:r></w:p>') +
-        '<w:sectPr/>',
+      control(
+        'MENDELEY_BIBLIOGRAPHY',
+        [
+          ...new Set(
+            payloads
+              .flatMap((p) => p.citationItems || [])
+              .map((i) => i.itemData?.title)
+              .filter(Boolean),
+          ),
+        ]
+          .map(
+            (title, i) =>
+              `<w:p><w:r><w:t>${i + 1}. Author. ${escape(title)}. Test Journal.</w:t></w:r></w:p>`,
+          )
+          .join(''),
+      ) + '<w:sectPr/>',
     );
   if (options.transform) raw = options.transform(raw);
   zip.file('word/document.xml', raw);

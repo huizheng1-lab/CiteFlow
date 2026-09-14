@@ -1,5 +1,6 @@
 import { apply, assert, exactSourceKey, doi } from './model.js';
 import { XMLSerializer } from '@xmldom/xmldom';
+import { reviewBibliography } from './bibliography-review.js';
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const all = (n, name) => Array.from(n.getElementsByTagNameNS(W, name));
@@ -67,6 +68,7 @@ export async function importMendeleyControls({ zip, root, doc }) {
   );
   const sourceIds = new Map();
   const repairedSources = new Set();
+  const citationText = {};
   for (const [index, node] of citations.entries()) {
     assert(
       node.parentNode.localName === 'p' &&
@@ -150,6 +152,9 @@ export async function importMendeleyControls({ zip, root, doc }) {
       );
     });
     const result = apply(doc, { type: 'citation.insert', items });
+    citationText[result.citationId] = all(node, 't')
+      .map((n) => n.textContent)
+      .join('');
     retag(node, 'citeflow:citation:' + result.citationId);
   }
   for (const node of bibliographies) {
@@ -159,6 +164,16 @@ export async function importMendeleyControls({ zip, root, doc }) {
         !all(node, 'dataBinding').length,
       unsupported,
     );
+    const review = reviewBibliography(
+      all(node, 'p').map((p) =>
+        all(p, 't')
+          .map((n) => n.textContent)
+          .join(''),
+      ),
+      doc.sources,
+      citationText,
+    );
+    if (review) doc.bibliographyReview = review;
     retag(node, 'citeflow:bibliography');
   }
   const inactiveEndNoteFields = archiveEmptyEndNoteFields(root, doc);
@@ -173,6 +188,13 @@ export async function importMendeleyControls({ zip, root, doc }) {
     bibliographyCount: bibliographies.length,
     ...(repairedSources.size ? { metadataRepairs: repairedSources.size } : {}),
     ...(inactiveEndNoteFields ? { inactiveEndNoteFields } : {}),
+    ...(doc.bibliographyReview
+      ? {
+          bibliographyEntries: doc.bibliographyReview.entries.length,
+          unmatchedBibliographyEntries: doc.bibliographyReview.unmatchedCount,
+          bibliographyPreserved: true,
+        }
+      : {}),
   };
 }
 

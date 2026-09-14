@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { LocalWorkspace } from '../browser/workspace.js';
 import { createDocx, inspectDocx, loadPackage, editDocx } from '../src/docx.js';
 import { mendeleyDocx, paper, citation } from './fixtures/mendeley.js';
+import { exportHandoff } from '../src/handoff.js';
+import { reviewBibliography } from '../src/bibliography-review.js';
+
+test('duplicate and ambiguous bibliography matches also require preservation', () => {
+  const source = { ...paper, id: 'one' };
+  const text = 'Author. ' + source.title + '. 2024.';
+  assert.equal(reviewBibliography([text, text], { one: source }, {}).entries.length, 2);
+  const ambiguous = reviewBibliography([text], { one: source, two: { ...source, id: 'two' } }, {});
+  assert.equal(ambiguous.unmatchedCount, 1);
+});
 
 test('Mendeley v3 imports groups, repeated sources, Unicode, locators and bibliography offline', async () => {
   const second = { ...paper, id: 'external-2', title: 'Another synthetic study' };
@@ -130,6 +140,64 @@ test('Mendeley documents without a bibliography import without adding one', asyn
   assert.equal(result.importReport.bibliographyCount, 0);
   const { root } = await loadPackage(w.download());
   assert(!root.toString().includes('citeflow:bibliography'));
+});
+
+test('unmatched bibliography entries and original numbering survive prose editing, Undo and reopen', async () => {
+  const extra =
+    '<w:p><w:r><w:rPr><w:i/></w:rPr><w:t>2. Another author. A reference with no embedded citation. 2020.</w:t></w:r></w:p>';
+  const bytes = await mendeleyDocx([citation()], {
+    transform: (s) =>
+      s
+        .replace('</w:sdtContent></w:sdt><w:sectPr/>', extra + '</w:sdtContent></w:sdt><w:sectPr/>')
+        .replace('<w:t>(1)</w:t>', '<w:t>(42)</w:t>'),
+  });
+  const w = new LocalWorkspace();
+  let result = await w.open(bytes, 'complete-bibliography.docx');
+  assert.equal(result.importReport.bibliographyEntries, 2);
+  assert.equal(result.importReport.unmatchedBibliographyEntries, 1);
+  assert.equal(result.importReport.style, 'original');
+  assert.equal(Object.values(result.rendered.citations)[0], '(42)');
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const bibliographyContent = (root) =>
+    Array.from(root.getElementsByTagNameNS(W, 'sdt'))
+      .find((s) =>
+        ['MENDELEY_BIBLIOGRAPHY', 'citeflow:bibliography'].includes(
+          s.getElementsByTagNameNS(W, 'tag')[0]?.getAttributeNS(W, 'val'),
+        ),
+      )
+      .getElementsByTagNameNS(W, 'sdtContent')[0]
+      .toString();
+  const original = bibliographyContent((await loadPackage(bytes)).root);
+  assert.equal(bibliographyContent((await loadPackage(w.download())).root), original);
+  const content = structuredClone(result.editor.content);
+  content.content[0].content.find((n) => n.type === 'text').text = 'Revised prose.';
+  result = await w.edit([{ type: 'document.replace', content }]);
+  assert.match(result.paragraphs[0].text, /Revised prose/);
+  assert.equal(bibliographyContent((await loadPackage(w.download())).root), original);
+  await w.undo();
+  await w.redo();
+  const reopened = await new LocalWorkspace().open(w.download(), 'reopened.docx');
+  assert.equal(reopened.document.bibliographyReview.entries.length, 2);
+  assert.equal(Object.values(reopened.rendered.citations)[0], '(42)');
+  for (const op of [
+    { type: 'style.set', style: 'apa' },
+    { type: 'bibliography.place' },
+    { type: 'citation.remove', citationId: result.document.citations[0].id },
+  ])
+    await assert.rejects(w.edit([op]), /metadata review/);
+  const deleted = structuredClone(result.editor.content);
+  deleted.content = deleted.content.filter((n) => n.type !== 'bibliography');
+  await assert.rejects(w.edit([{ type: 'document.replace', content: deleted }]), /metadata review/);
+  const noCitation = structuredClone(result.editor.content);
+  noCitation.content[0].content = noCitation.content[0].content.filter(
+    (n) => n.type !== 'citation',
+  );
+  await assert.rejects(
+    w.edit([{ type: 'document.replace', content: noCitation }]),
+    /metadata review/,
+  );
+  await assert.rejects(exportHandoff(w.download(), 'mendeley'), /bibliography review/);
+  assert.equal(bibliographyContent((await loadPackage(w.download())).root), original);
 });
 
 test('Mendeley DOI export lines are separated without losing PubMed identifiers', async () => {

@@ -203,6 +203,10 @@ export async function exportHandoff(bytes, target) {
   assert(['endnote', 'mendeley'].includes(target), 'Choose EndNote or Mendeley');
   const inspection = await inspectDocx(bytes);
   assert(
+    !inspection.document.bibliographyReview,
+    'Resolve the original bibliography review before collaborator conversion. Download Word file preserves the complete original bibliography.',
+  );
+  assert(
     inspection.document.citations.length,
     'Insert at least one CiteFlow citation before exporting',
   );

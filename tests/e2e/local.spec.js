@@ -4,22 +4,61 @@ import JSZip from 'jszip';
 import { createDocx, inspectDocx } from '../../src/docx.js';
 import { mendeleyDocx, citation, paper } from '../fixtures/mendeley.js';
 
-test('Mendeley Word citations become editable groups and survive style change and download', async ({
+test('incomplete bibliography is preserved with a persistent review notice and complete Word download', async ({
   page,
 }) => {
+  const extra =
+    '<w:p><w:r><w:t>2. Missing Author. Unlinked bibliography entry. 2020.</w:t></w:r></w:p>';
+  const bytes = await mendeleyDocx([citation()], {
+    transform: (s) =>
+      s.replace('</w:sdtContent></w:sdt><w:sectPr/>', extra + '</w:sdtContent></w:sdt><w:sectPr/>'),
+  });
   await page.goto('/');
   await page
     .locator('#file')
     .setInputFiles({
-      name: 'mendeley.docx',
+      name: 'unmatched.docx',
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      buffer: Buffer.from(
-        await mendeleyDocx([
-          citation(),
-          citation([{ id: paper.id, itemData: paper, locator: '5' }]),
-        ]),
-      ),
+      buffer: Buffer.from(bytes),
     });
+  await expect(page.locator('#status')).toContainText('Preserved 2 original bibliography entries');
+  await expect(page.locator('#bibliography-review')).toContainText(
+    '1 entries need metadata review',
+  );
+  await expect(page.locator('#style')).toBeDisabled();
+  await expect(page.locator('#handoff')).toBeDisabled();
+  await page.locator('#bibliography-review summary').click();
+  await expect(page.locator('#bibliography-review')).toContainText('Unlinked bibliography entry');
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#download').click();
+  const file = await downloaded;
+  const saved = await readFile(await file.path());
+  const inspected = await inspectDocx(saved);
+  expect(inspected.document.bibliographyReview.entries).toHaveLength(2);
+  expect(inspected.document.bibliographyReview.unmatchedCount).toBe(1);
+  await page
+    .locator('#file')
+    .setInputFiles({
+      name: 'saved.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      buffer: saved,
+    });
+  await expect(page.locator('#bibliography-review')).toBeVisible();
+  await expect(page.locator('#bibliography-review')).toContainText('2 original entries');
+  await expect(page.locator('#style')).toBeDisabled();
+});
+
+test('Mendeley Word citations become editable groups and survive style change and download', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('#file').setInputFiles({
+    name: 'mendeley.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from(
+      await mendeleyDocx([citation(), citation([{ id: paper.id, itemData: paper, locator: '5' }])]),
+    ),
+  });
   await expect(page.locator('#status')).toContainText(
     'Imported 2 Mendeley citation groups and 1 references',
   );
@@ -34,13 +73,11 @@ test('Mendeley Word citations become editable groups and survive style change an
   const result = await inspectDocx(bytes);
   expect(result.document.citations).toHaveLength(2);
   expect(result.issues).toEqual([]);
-  await page
-    .locator('#file')
-    .setInputFiles({
-      name: 'converted.docx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      buffer: bytes,
-    });
+  await page.locator('#file').setInputFiles({
+    name: 'converted.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: bytes,
+  });
   await expect(page.locator('.citation-token')).toHaveCount(2);
   await expect(page.locator('.citation-token').first()).toContainText('Källberg');
 });

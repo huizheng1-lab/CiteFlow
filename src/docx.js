@@ -7,6 +7,7 @@ import { format } from './format.js';
 import { replaceWordContent } from './word-editor.js';
 import { richRuns } from './rich-text.js';
 import { hasForeignCitations, importMendeleyControls } from './mendeley.js';
+import { assertReviewOperation, reviewMessage } from './bibliography-review.js';
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
   CF = 'https://digimatrix-labs.org/citeflow/v1',
   REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -136,6 +137,16 @@ export async function inspectDocx(bytes) {
       managed: hasManagedAncestor(p),
     })),
     issues: [
+      ...(doc.bibliographyReview
+        ? [
+            {
+              code: 'bibliography-review-required',
+              message: reviewMessage,
+              entryCount: doc.bibliographyReview.entries.length,
+              unmatchedCount: doc.bibliographyReview.unmatchedCount,
+            },
+          ]
+        : []),
       ...(hasForeignCitations(root)
         ? [
             {
@@ -286,7 +297,16 @@ export async function editDocx(
       );
   doc.citations = ids.map((cid) => doc.citations.find((c) => c.id === cid));
   const results = [];
+  const originalCitationOrder = doc.bibliographyReview ? JSON.stringify(doc.citations) : null;
+  const originalBibliography = doc.bibliographyReview
+    ? JSON.stringify(
+        controls(root)
+          .filter((c) => tag(c) === 'citeflow:bibliography')
+          .map(out),
+      )
+    : null;
   for (const op of operations) {
+    assertReviewOperation(doc, op);
     if (op.type === 'document.replace') {
       const numberingRaw = zip.file('word/numbering.xml')
         ? await zip.file('word/numbering.xml').async('string')
@@ -386,13 +406,26 @@ export async function editDocx(
   doc.citations = physical.map((c) =>
     doc.citations.find((x) => x.id === tag(c).slice('citeflow:citation:'.length)),
   );
+  if (originalCitationOrder)
+    assert(JSON.stringify(doc.citations) === originalCitationOrder, reviewMessage);
+  if (originalBibliography)
+    assert(
+      JSON.stringify(
+        controls(root)
+          .filter((c) => tag(c) === 'citeflow:bibliography')
+          .map(out),
+      ) === originalBibliography,
+      reviewMessage,
+    );
   doc.revision++;
   doc.updatedAt = new Date().toISOString();
   const rendered = format(doc),
     rich = format(doc, 'html');
-  for (const c of physical)
+  for (const c of doc.bibliographyReview ? [] : physical)
     setControl(root, c, rendered.citations[tag(c).slice('citeflow:citation:'.length)]);
-  for (const c of controls(root).filter((c) => tag(c) === 'citeflow:bibliography'))
+  for (const c of controls(root).filter(
+    (c) => tag(c) === 'citeflow:bibliography' && !doc.bibliographyReview,
+  ))
     richControl(
       root,
       c,
@@ -420,7 +453,13 @@ export async function importMendeleyDocx(bytes) {
     operations: [],
     repair: true,
   });
-  return { bytes: result.bytes, report: { ...report, style: result.document.style } };
+  return {
+    bytes: result.bytes,
+    report: {
+      ...report,
+      style: result.document.bibliographyReview ? 'original' : result.document.style,
+    },
+  };
 }
 
 async function savePackage({ zip, root, doc, metadataPath }) {

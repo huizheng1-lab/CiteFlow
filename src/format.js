@@ -6,6 +6,35 @@ export const styles = ['vancouver', 'apa', 'harvard1'];
 export function format(doc, output = 'text') {
   assert(styles.includes(doc.style), 'Unsupported style');
   assert(['text', 'html'].includes(output), 'Unsupported output format');
+  if (doc.bibliographyReview) {
+    assert(
+      !validate(doc).some((x) => ['missing-source', 'duplicate-occurrence'].includes(x.code)),
+      'Broken citation links',
+      409,
+    );
+    const original = doc.bibliographyReview;
+    const display = (text) =>
+      output === 'html'
+        ? text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+        : text;
+    assert(
+      doc.citations.every((c) => Object.hasOwn(original.citationText, c.id)),
+      'A preserved citation display is missing',
+    );
+    return {
+      citations: Object.fromEntries(
+        doc.citations.map((c) => [c.id, display(original.citationText[c.id])]),
+      ),
+      bibliography: original.entries.map((entry) => display(entry.text)),
+      bibliographySourceIds: original.entries.map((entry) =>
+        entry.sourceId ? [entry.sourceId] : [],
+      ),
+      bibliographyParameters: {},
+      style: 'original',
+      styleHash: hash(original),
+      processorVersion: CSL.PROCESSOR_VERSION,
+    };
+  }
   assert(
     !validate(doc).some((x) => ['missing-source', 'duplicate-occurrence'].includes(x.code)),
     'Broken citation links',

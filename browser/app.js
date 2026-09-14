@@ -17,7 +17,7 @@ let worker,
 const pending = new Map(),
   library = new LocalLibrary();
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.4', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.5', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -66,6 +66,17 @@ function enabled() {
   $('#redo').disabled = (!state?.redoCount && !wordEditor.changed) || busy;
   $('#lookup').disabled = busy;
   $('#file').disabled = busy;
+  if (state?.document.bibliographyReview) {
+    for (const selector of [
+      '#style',
+      '#bibliography',
+      '#bibliography-here',
+      '#handoff',
+      '#include-library',
+      '#manual',
+    ])
+      $(selector).disabled = true;
+  }
 }
 const guard = (fn) => async (event) => {
   event?.preventDefault();
@@ -119,7 +130,7 @@ async function openFile(file) {
   draw();
   status(
     result.importReport
-      ? `Imported ${result.importReport.citationCount} Mendeley citation groups and ${result.importReport.sourceCount} references into CiteFlow, formatted in Vancouver. ${result.importReport.metadataRepairs ? `Separated DOI and PubMed identifiers in ${result.importReport.metadataRepairs} reference(s). ` : ''}${result.importReport.inactiveEndNoteFields ? `Preserved metadata from ${result.importReport.inactiveEndNoteFields} empty EndNote fields. ` : ''}Your original file is unchanged. Download the Word file to save this converted copy.`
+      ? `${result.importReport.bibliographyPreserved ? `Preserved ${result.importReport.bibliographyEntries} original bibliography entries and original citation numbering. ${result.importReport.sourceCount} linked references; ${result.importReport.unmatchedBibliographyEntries} bibliography entries need metadata review.` : `Imported ${result.importReport.citationCount} Mendeley citation groups and ${result.importReport.sourceCount} references into CiteFlow, formatted in Vancouver.`} ${result.importReport.metadataRepairs ? `Separated DOI and PubMed identifiers in ${result.importReport.metadataRepairs} reference(s). ` : ''}${result.importReport.inactiveEndNoteFields ? `Preserved metadata from ${result.importReport.inactiveEndNoteFields} empty EndNote fields. ` : ''}Your original file is unchanged. Download the Word file to save this converted copy.`
       : result.editor.editable
         ? 'Opened locally. Type in the document to edit it. Protected Word content is preserved.'
         : 'This document has tracked changes. Accept them in a copy before editing.',
@@ -256,6 +267,9 @@ function sourceCard(s, { saved = false } = {}) {
       actions.append(button('Merge duplicates', () => mergeEditor(s)));
     p.append(document.createTextNode(` · ${count} citation${count === 1 ? '' : 's'}`));
   }
+  if (state?.document.bibliographyReview && !saved)
+    for (const b of actions.querySelectorAll('button'))
+      if (b.textContent !== 'Save to library') b.disabled = true;
   el.append(h, p, actions);
   return el;
 }
@@ -281,13 +295,53 @@ function draw() {
     : '';
   $('#sources').replaceChildren();
   $('#citations').replaceChildren();
+  const reviewPanel = $('#bibliography-review');
+  reviewPanel.replaceChildren();
+  const review = state?.document.bibliographyReview;
+  reviewPanel.hidden = !review;
+  let originalStyle = $('#style option[value="original"]');
+  if (!originalStyle) {
+    originalStyle = document.createElement('option');
+    originalStyle.value = 'original';
+    originalStyle.textContent = 'Original — review needed';
+    $('#style').append(originalStyle);
+  }
+  originalStyle.hidden = !review;
+  if (review) {
+    const heading = document.createElement('h2');
+    heading.textContent = 'Original bibliography preserved';
+    reviewPanel.append(
+      heading,
+      paragraph(
+        `${review.entries.length} original entries · ${Object.keys(state.document.sources).length} linked references · ${review.unmatchedCount} entries need metadata review.`,
+      ),
+    );
+    reviewPanel.append(
+      paragraph(
+        'All original bibliography text and citation numbers are retained. You can edit prose and download this copy. Citation changes, style changes and collaborator conversion are paused. Correct the missing citation links in your original Word document with Mendeley, then reopen it to enable reformatting.',
+      ),
+    );
+    const details = document.createElement('details'),
+      summary = document.createElement('summary');
+    summary.textContent = 'Review unmatched bibliography entries';
+    details.append(summary);
+    for (const entry of review.entries.filter((e) => !e.sourceId))
+      details.append(paragraph(entry.text));
+    reviewPanel.append(details);
+    if (review.sourcesWithoutEntry)
+      reviewPanel.append(
+        paragraph(
+          `${review.sourcesWithoutEntry} linked sources could not be matched to a bibliography entry.`,
+        ),
+      );
+  }
   wordEditor.show(state?.editor || null);
   if (!state) {
     drawLibrary();
     enabled();
     return;
   }
-  $('#style').value = state.document.style;
+  $('#style').value = review ? 'original' : state.document.style;
   for (const s of Object.values(state.document.sources)) $('#sources').append(sourceCard(s));
   if (!Object.keys(state.document.sources).length)
     $('#sources').append(
@@ -304,6 +358,7 @@ function draw() {
       button('Edit group / pages', () => citationEditor(c)),
       button('Remove', () => edit([{ type: 'citation.remove', citationId: c.id }])),
     );
+    if (review) for (const b of actions.querySelectorAll('button')) b.disabled = true;
     el.append(
       h,
       paragraph(
