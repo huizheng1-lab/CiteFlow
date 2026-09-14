@@ -120,3 +120,7 @@ Version 0.6.7 requests the browser's Save As picker for library exports when ava
 ### Browsing large document reference lists
 
 Sources supports title/author/year/journal/identifier search, title or year sorting, and pages of 20 references. Select all search results or individual references; selections persist across searches and pages. Save selected or all document references to the Local library, with existing duplicate review. Saved references show a badge. Select a manuscript insertion point and use Cite here to insert a citation. Bibliography review restrictions still apply.
+
+### Mendeley Cite export
+
+The Mendeley collaborator target now creates modern v3 citation content controls and a managed bibliography at the existing position. Legacy Desktop fields are no longer used. Reopen the original Mendeley DOCX before export to retain its source identities. Existing add-in citation caches are refreshed to match exported controls. Native Word add-in recognition still requires verification; structural round trips do not certify application compatibility.

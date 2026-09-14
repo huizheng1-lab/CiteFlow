@@ -115,52 +115,78 @@ function run(root, value, instruction = false) {
   r.appendChild(t);
   return r;
 }
-function marker(root, kind) {
-  const r = root.createElementNS(W, 'w:r');
-  const f = root.createElementNS(W, 'w:fldChar');
-  f.setAttributeNS(W, 'w:fldCharType', kind);
-  r.appendChild(f);
-  return r;
-}
-function fieldStart(root, code) {
-  const nodes = [marker(root, 'begin')];
-  // Split instructions for Word interoperability without altering Unicode code points.
-  const points = Array.from(code);
-  for (let i = 0; i < points.length; i += 200)
-    nodes.push(run(root, points.slice(i, i + 200).join(''), true));
-  nodes.push(marker(root, 'separate'));
-  return nodes;
-}
 function replace(node, replacements) {
   for (const n of replacements) node.parentNode.insertBefore(n, node);
   node.parentNode.removeChild(node);
 }
-function mendeleyCode(c, sources, display) {
+function mendeleyTag(c, sources, display, sourceIds) {
+  const payload = {
+    citationID: 'MENDELEY_CITATION_' + c.id,
+    properties: { noteIndex: 0 },
+    isEdited: false,
+    manualOverride: { isManuallyOverridden: false, citeprocText: display, manualOverrideText: '' },
+    citationItems: c.items.map((item) => {
+      const id = sourceIds?.[item.id] || item.id;
+      return { ...item, id, itemData: { ...sources[item.id], id }, isTemporary: false };
+    }),
+  };
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
   return (
-    ' ADDIN CSL_CITATION ' +
-    JSON.stringify({
-      citationID: c.id,
-      citationItems: c.items.map((item) => ({
-        ...item,
-        itemData: sources[item.id],
-        // Never invent Mendeley account or library IDs. Embed complete data and
-        // use public source URIs or an explicit CiteFlow URN for local records.
-        uris: [
-          sources[item.id].DOI
-            ? 'https://doi.org/' + sources[item.id].DOI
-            : sources[item.id].URL || 'urn:citeflow:source:' + label(item.id),
-        ],
-      })),
-      properties: { noteIndex: 0 },
-      mendeley: {
-        formattedCitation: display,
-        plainTextFormattedCitation: display,
-        previouslyFormattedCitation: display,
-      },
-      schema: 'https://github.com/citation-style-language/schema/raw/master/csl-citation.json',
-    }) +
-    ' '
+    'MENDELEY_CITATION_v3_' + btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''))
   );
+}
+function retagMendeley(control, value) {
+  all(control, 'tag')[0].setAttributeNS(W, 'w:val', value);
+  for (const name of ['lock', 'alias'])
+    for (const child of all(control, name)) child.parentNode.removeChild(child);
+}
+async function refreshMendeleySettings(zip, root, target, style) {
+  const namespace = 'http://schemas.microsoft.com/office/webextensions/webextension/2010/11';
+  const citations = all(root, 'sdt')
+    .map(tag)
+    .filter((value) => value?.startsWith('MENDELEY_CITATION_v3_'))
+    .map((value) => ({
+      ...JSON.parse(
+        new TextDecoder().decode(
+          Uint8Array.from(atob(value.slice('MENDELEY_CITATION_v3_'.length)), (c) =>
+            c.charCodeAt(0),
+          ),
+        ),
+      ),
+      citationTag: value,
+    }));
+  for (const entry of Object.values(zip.files).filter((e) =>
+    /^word\/webextensions\/.*\.xml$/.test(e.name),
+  )) {
+    const settings = xml(await entry.async('string'));
+    let changed = false;
+    for (const property of Array.from(settings.getElementsByTagNameNS(namespace, 'property'))) {
+      const name = property.getAttribute('name');
+      if (!name.startsWith('MENDELEY_')) continue;
+      changed = true;
+      if (target !== 'mendeley') property.parentNode.removeChild(property);
+      else if (name === 'MENDELEY_CITATIONS')
+        property.setAttribute('value', JSON.stringify(citations));
+      else if (name === 'MENDELEY_BIBLIOGRAPHY_IS_DIRTY') property.setAttribute('value', 'true');
+      else if (name === 'MENDELEY_BIBLIOGRAPHY_LAST_MODIFIED')
+        property.setAttribute('value', String(Date.now()));
+      else if (name === 'MENDELEY_CITATIONS_STYLE')
+        property.setAttribute(
+          'value',
+          JSON.stringify({
+            id: 'https://www.zotero.org/styles/' + style,
+            title:
+              style === 'apa'
+                ? 'American Psychological Association'
+                : 'NLM/Vancouver: Citing Medicine 2nd edition (citation-sequence)',
+            format: style === 'apa' ? 'author-date' : 'numeric',
+            defaultLocale: null,
+            isLocaleCodeValid: true,
+          }),
+        );
+    }
+    if (changed) zip.file(entry.name, serialize(settings));
+  }
 }
 function normalizedPath(base, target) {
   const segments = (target.startsWith('/') ? target.slice(1) : base + '/' + target).split('/');
@@ -245,7 +271,10 @@ export async function exportHandoff(bytes, target) {
     'Another citation manager owns content controls in this document',
   );
   for (const e of Object.values(zip.files).filter(
-    (e) => /^word\/.*\.xml$/.test(e.name) && e.name !== 'word/document.xml',
+    (e) =>
+      /^word\/.*\.xml$/.test(e.name) &&
+      e.name !== 'word/document.xml' &&
+      !e.name.startsWith('word/webextensions/'),
   )) {
     const raw = await e.async('string');
     assert(
@@ -284,15 +313,11 @@ export async function exportHandoff(bytes, target) {
       if (target === 'endnote')
         replace(control, []); // EndNote regenerates its own list.
       else {
-        const paragraphs = Array.from(content.childNodes).map((n) => n.cloneNode(true));
-        const entries = paragraphs.filter((n) => n.localName === 'p');
-        assert(entries.length > 1, 'Reference list has no entries');
-        const first = entries[1],
-          last = entries.at(-1);
-        const anchor = Array.from(first.childNodes).find((n) => n.localName !== 'pPr') || null;
-        for (const n of fieldStart(root, ' ADDIN CSL_BIBLIOGRAPHY ')) first.insertBefore(n, anchor);
-        last.appendChild(marker(root, 'end'));
-        replace(control, paragraphs);
+        // Modern Mendeley Cite discovers the bibliography by its content-control tag.
+        // Keep the heading outside the managed bibliography, at its original position.
+        const heading = Array.from(content.childNodes).find((n) => n.localName === 'p');
+        if (heading) control.parentNode.insertBefore(heading, control);
+        retagMendeley(control, 'MENDELEY_BIBLIOGRAPHY');
       }
       continue;
     }
@@ -311,14 +336,13 @@ export async function exportHandoff(bytes, target) {
         .flatMap((n) => all(n, 't'))
         .map((t) => t.textContent)
         .join('');
-      replace(control, [
-        ...(c.leadingSpace ? [run(root, ' ')] : []),
-        ...fieldStart(root, mendeleyCode(c, sources, display)),
-        ...result,
-        marker(root, 'end'),
-      ]);
+      if (c.leadingSpace) control.parentNode.insertBefore(run(root, ' '), control);
+      while (content.firstChild) content.removeChild(content.firstChild);
+      for (const child of result) content.appendChild(child);
+      retagMendeley(control, mendeleyTag(c, sources, display, doc.mendeleySourceIds));
     }
   }
+  await refreshMendeleySettings(zip, root, target, doc.style);
   await detachMetadata(zip, metadataPath);
   zip.file('word/document.xml', serialize(root));
   const converted = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
@@ -328,7 +352,9 @@ export async function exportHandoff(bytes, target) {
     compatibility: 'experimental',
     nativeApplicationVerified: false,
     strategy:
-      target === 'endnote' ? 'temporary-citations-with-labels' : 'mendeley-desktop-csl-fields',
+      target === 'endnote'
+        ? 'temporary-citations-with-labels'
+        : 'mendeley-cite-v3-content-controls',
     originalFileHash: fileHash(bytes),
     exportedFileHash: fileHash(converted),
     citationCount: doc.citations.length,
@@ -367,6 +393,14 @@ function instructions(target, report) {
     common +
     (target === 'endnote'
       ? `ENDNOTE BULK CONVERSION\n1. In desktop EndNote, create a new empty library for this handoff. Import references.xml using EndNote generated XML. Do not discard duplicate references during this import: the unique Label values are needed.\n2. In EndNote Settings/Preferences → Temporary Citations, choose Use field instead of record number → Label. Use the standard delimiters { and }, record marker #, prefix marker \\, and group separator semicolon. Restore your usual preferences after conversion if desired.\n3. Open manuscript-endnote.docx in Word with Cite While You Write. It intentionally shows temporary citations such as {Smith, 2024 #CF...}. Choose a style and run Update Citations and Bibliography for the whole document. No citation-by-citation reinsertion is intended.\n4. Confirm that all placeholders resolve without ambiguous matches. The original reference list was removed so EndNote can generate its own; its position and heading may need adjustment. Page locators require a style that renders Cited Pages.\n5. Try Edit & Manage Citation(s), change a page, add/remove a citation, change style, save, close and reopen. If anything fails, keep the original and report the EndNote/Word versions; do not silently accept unmatched citations.\n\nThis route supports journal articles, books, book sections, conference papers, reports, theses, and web pages. Only page locators are supported. Some less common source fields remain in references.csl.json but are not mapped into EndNote XML. Review imported metadata.\n\nFormat references:\nhttps://docs.endnote.com/docs/endnote/2025/macos/v1/content/09word/components_ofatempcite.htm\nhttps://docs.endnote.com/docs/endnote/2025/macos/v1/content/21prefs/temporary_citations.htm\n`
-      : `MENDELEY DESKTOP FIELD BRIDGE\n1. Open manuscript-mendeley.docx in Word. Existing citation text remains visible; full CSL source records are embedded in its ADDIN CSL_CITATION fields. These are legacy Desktop fields, not the modern Mendeley Cite internal format. No Mendeley account IDs were invented.\n2. Open Mendeley Cite. If it recognizes the legacy fields and offers document conversion, use that conversion. A recognized document should be converted in bulk, without reinserting individual citations. Alternatively, test the legacy Mendeley Desktop Word plugin if you already have a supported installation.\n3. If conversion is not offered or records cannot be resolved, STOP. This bridge has not passed application testing and may require additional compatibility work. Do not flatten the fields or overwrite the original.\n4. After conversion, test editing a group/page, adding/removing citations, changing style, regenerating the bibliography, and saving/reopening. Check every citation against handoff-report.json.\n\nreferences.csl.json is an archival record of cited sources, not a claim that Mendeley imports CSL JSON as a library.\n\nFormat references:\nhttps://github.com/citation-style-language/schema\nhttps://www.mendeley.com/release-notes/mendeley-cite-v1_16_0\n`)
+      : `MENDELEY CITE
+1. Open manuscript-mendeley.docx in Word and open the modern Mendeley Cite add-in. This copy contains Mendeley Cite v3 citation content controls with embedded source data and a MENDELEY_BIBLIOGRAPHY control at the existing list position. The legacy Mendeley Desktop plugin is not the target.
+2. Select an existing citation and verify that Mendeley Cite displays its references. Check that the existing bibliography updates when adding or removing a citation; do not insert a second bibliography.
+3. Test a style change and a page locator, then save, close and reopen the copy. Compare citation and reference counts with handoff-report.json.
+4. If the add-in does not recognize the controls, retain the original and report the Mendeley Cite version and its message. Native add-in behavior still requires application verification.
+
+Original Mendeley source IDs are retained for documents imported after this update. Other records use document-local IDs with embedded metadata; this does not add references to your Mendeley cloud library.
+
+`)
   );
 }

@@ -1,6 +1,6 @@
 {
   "name": "CiteFlow Local Agent",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "download": "https://www.rerioa.com/CiteFlow/citeflow-agent.cjs",
   "checksum": "https://www.rerioa.com/CiteFlow/citeflow-agent.sha256",
   "instructions": "https://www.rerioa.com/CiteFlow/AGENT_GUIDE.md",
@@ -30,7 +30,7 @@
   "privacy": "Document processing runs on the agent host. Tool results are visible to the calling agent; use a local agent for device-only privacy.",
   "collaborator_exports": {
     "endnote": "Experimental bulk conversion",
-    "mendeley": "Experimental Desktop field bridge",
+    "mendeley": "Experimental Mendeley Cite v3 content controls",
     "native_application_verified": false
   },
   "quickstart": "https://www.rerioa.com/CiteFlow/AGENTS.md",

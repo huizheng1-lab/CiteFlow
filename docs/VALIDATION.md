@@ -79,3 +79,7 @@ Version 0.6.7: two browser export tests passed. Picker integration was tested wi
 ## Version 0.6.8 — 2026-09-14
 
 All 13 Chromium browser workflows passed on Windows, including a synthetic 120-reference Mendeley document: 20-item pagination, identifier and author/year searches, selection across pages and searches, selected/all library saving, exact duplicate reuse, saved badges, sorting and clearing selection. Existing citation editing, bibliography preservation and four-format export workflows also passed.
+
+## Version 0.6.9 — 2026-09-14
+
+15 focused handoff/Mendeley Node tests passed, covering modern v3 controls, original source IDs, managed bibliography position, add-in citation cache refresh, and import/export round trips. All 13 browser workflows passed before the additional cache refresh; the collaborator browser workflow was rerun on the final build. A private two-group/four-source sample round-tripped successfully with all original reference identities. A corrected sample was saved locally, never deployed. Mendeley Cite inside Word has not been exercised, so native recognition remains unverified.

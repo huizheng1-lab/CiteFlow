@@ -109,32 +109,18 @@ test('EndNote bulk handoff uses matching stable labels, groups and pages; origin
   assert.equal(report.citationCount, 2);
   assert.equal(report.sourceCount, 2);
 });
-test('Mendeley bridge creates balanced fields with embedded metadata and original bibliography position', async () => {
+test('Mendeley Cite exports v3 controls, metadata and the existing managed bibliography', async () => {
   const { bytes, a, b } = await fixture();
   const { root, raw, zip, bundle } = await unpack(bytes, 'mendeley');
-  const fields = [],
-    stack = [];
-  for (const r of nodes(root, 'r')) {
-    const kind = nodes(r, 'fldChar')[0]?.getAttributeNS(W, 'fldCharType');
-    if (kind === 'begin') stack.push({ code: '', text: '', separate: false });
-    if (kind === 'separate') {
-      assert.equal(stack.length, 1);
-      stack.at(-1).separate = true;
-    }
-    if (stack.length) {
-      stack.at(-1).code += nodes(r, 'instrText')
-        .map((n) => n.textContent)
-        .join('');
-      if (stack.at(-1).separate)
-        stack.at(-1).text += nodes(r, 't')
-          .map((n) => n.textContent)
-          .join('');
-    }
-    if (kind === 'end') fields.push(stack.pop());
-  }
-  assert.equal(stack.length, 0);
-  assert.equal(fields.length, 3);
-  const c = JSON.parse(fields[0].code.replace(' ADDIN CSL_CITATION ', ''));
+  const controls = nodes(root, 'sdt');
+  const tag = (node) => nodes(node, 'tag')[0].getAttributeNS(W, 'val');
+  const citations = controls.filter((node) => tag(node).startsWith('MENDELEY_CITATION_v3_'));
+  const bibliography = controls.filter((node) => tag(node) === 'MENDELEY_BIBLIOGRAPHY');
+  assert.equal(citations.length, 2);
+  assert.equal(bibliography.length, 1);
+  const c = JSON.parse(
+    Buffer.from(tag(citations[0]).slice('MENDELEY_CITATION_v3_'.length), 'base64').toString('utf8'),
+  );
   assert.deepEqual(
     c.citationItems.map((i) => i.id),
     [a, b],
@@ -143,15 +129,19 @@ test('Mendeley bridge creates balanced fields with embedded metadata and origina
   assert.equal(c.citationItems[0].locator, '5');
   assert.equal(c.citationItems[0].prefix, 'see ');
   assert.equal(c.citationItems[0].suffix, ' also');
-  assert.equal(c.mendeley.previouslyFormattedCitation, fields[0].text);
-  assert.ok(!fields[0].text.startsWith(' '));
+  assert.equal(c.citationItems[0].isTemporary, false);
   assert.equal(
-    JSON.parse(fields[1].code.replace(' ADDIN CSL_CITATION ', '')).citationItems[0].id,
-    a,
+    c.manualOverride.citeprocText,
+    nodes(citations[0], 't')
+      .map((t) => t.textContent)
+      .join(''),
   );
-  assert.equal(fields[2].code.trim(), 'ADDIN CSL_BIBLIOGRAPHY');
-  assert.ok(raw.indexOf('CSL_BIBLIOGRAPHY') < raw.indexOf('Tail remains.'));
-  assert.equal(nodes(root, 'sdt').length, 0);
+  assert.ok(!c.manualOverride.citeprocText.startsWith(' '));
+  assert.equal(nodes(root, 'fldChar').length, 0);
+  assert.equal(nodes(root, 'lock').length, 0);
+  assert.ok(!raw.includes('citeflow:'));
+  assert.ok(raw.indexOf('MENDELEY_BIBLIOGRAPHY') < raw.indexOf('Tail remains.'));
+  assert.ok(!nodes(bibliography[0], 't').some((t) => t.textContent === 'References'));
   assert.equal(zip.file('customXml/citeflow.xml'), null);
   assert.equal(JSON.parse(await bundle.file('references.csl.json').async('string')).length, 2);
 });

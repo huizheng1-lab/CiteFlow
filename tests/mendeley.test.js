@@ -5,6 +5,32 @@ import { createDocx, inspectDocx, loadPackage, editDocx } from '../src/docx.js';
 import { mendeleyDocx, paper, citation } from './fixtures/mendeley.js';
 import { exportHandoff } from '../src/handoff.js';
 import { reviewBibliography } from '../src/bibliography-review.js';
+import JSZip from 'jszip';
+
+test('Mendeley import/export retains original reference IDs and a single recognized bibliography', async () => {
+  const w = new LocalWorkspace();
+  await w.open(
+    await mendeleyDocx([citation(), citation([{ id: paper.id, itemData: paper, locator: '7' }])]),
+    'original.docx',
+  );
+  const bundle = await JSZip.loadAsync(await w.exportHandoff('mendeley'));
+  const bytes = await bundle.file('manuscript-mendeley.docx').async('uint8array');
+  const zip = await JSZip.loadAsync(bytes);
+  const raw = await zip.file('word/document.xml').async('string');
+  const payloads = [...raw.matchAll(/MENDELEY_CITATION_v3_([^"<]+)/g)].map((m) =>
+    JSON.parse(Buffer.from(m[1], 'base64').toString('utf8')),
+  );
+  assert.equal(payloads.length, 2);
+  assert.equal(payloads[0].citationItems[0].id, paper.id);
+  assert.equal(payloads[0].citationItems[0].itemData.id, paper.id);
+  assert.equal(payloads[1].citationItems[0].locator, '7');
+  assert.equal(raw.match(/MENDELEY_BIBLIOGRAPHY/g).length, 1);
+  const reopened = new LocalWorkspace();
+  const result = await reopened.open(bytes, 'exported.docx');
+  assert.equal(result.document.citations.length, 2);
+  assert.equal(Object.keys(result.document.sources).length, 1);
+  assert.ok(!result.document.bibliographyReview);
+});
 
 test('duplicate and ambiguous bibliography matches also require preservation', () => {
   const source = { ...paper, id: 'one' };
@@ -12,6 +38,30 @@ test('duplicate and ambiguous bibliography matches also require preservation', (
   assert.equal(reviewBibliography([text, text], { one: source }, {}).entries.length, 2);
   const ambiguous = reviewBibliography([text], { one: source, two: { ...source, id: 'two' } }, {});
   assert.equal(ambiguous.unmatchedCount, 1);
+});
+
+test('Mendeley export updates add-in citation settings instead of retaining stale IDs', async () => {
+  const zip = await JSZip.loadAsync(await mendeleyDocx());
+  zip.file(
+    'word/webextensions/webextension1.xml',
+    '<we:webextension xmlns:we="http://schemas.microsoft.com/office/webextensions/webextension/2010/11"><we:properties><we:property name="MENDELEY_CITATIONS" value="[]"/><we:property name="MENDELEY_BIBLIOGRAPHY_IS_DIRTY" value="false"/><we:property name="MENDELEY_CITATIONS_STYLE" value="{}"/></we:properties></we:webextension>',
+  );
+  const w = new LocalWorkspace();
+  await w.open(await zip.generateAsync({ type: 'uint8array' }), 'settings.docx');
+  const bundle = await JSZip.loadAsync(await w.exportHandoff('mendeley'));
+  const exported = await JSZip.loadAsync(
+    await bundle.file('manuscript-mendeley.docx').async('uint8array'),
+  );
+  const settings = await exported.file('word/webextensions/webextension1.xml').async('string');
+  assert.match(settings, /MENDELEY_CITATION_v3_/);
+  assert.match(settings, /MENDELEY_BIBLIOGRAPHY_IS_DIRTY" value="true"/);
+  assert.match(settings, /external-1/);
+  assert.match(settings, /styles\/vancouver/);
+  const reopened = await new LocalWorkspace().open(
+    await exported.generateAsync({ type: 'uint8array' }),
+    'again.docx',
+  );
+  assert.equal(reopened.document.citations.length, 1);
 });
 
 test('Mendeley v3 imports groups, repeated sources, Unicode, locators and bibliography offline', async () => {

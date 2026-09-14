@@ -140,6 +140,9 @@ export async function importMendeleyControls({ zip, root, doc }) {
         const result = apply(doc, { type: 'source.upsert', source, allowDuplicate: true });
         existing = { key, id: result.sourceId };
         sourceIds.set(externalId, existing);
+        // Keep the originating identity for export back to Mendeley Cite.
+        doc.mendeleySourceIds ||= {};
+        doc.mendeleySourceIds[existing.id] = externalId;
       }
       return Object.fromEntries(
         Object.entries({
