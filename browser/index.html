@@ -16,7 +16,7 @@
       href="./agent-manifest.json"
       title="CLI and MCP agent manifest"
     />
-    <link rel="stylesheet" href="./style.css?v=0.6.7" />
+    <link rel="stylesheet" href="./style.css?v=0.6.8" />
   </head>
   <body>
     <header>
@@ -127,7 +127,42 @@
             </p>
             <div id="candidate" hidden></div>
             <button id="manual" data-needs-doc>＋ Enter reference manually</button>
+            <section id="source-browser" aria-label="Browse document references" hidden>
+              <label for="source-search">Search document references</label>
+              <input
+                id="source-search"
+                type="search"
+                placeholder="Title, author, year, journal or DOI"
+              />
+              <div class="actions">
+                <label for="source-sort">Sort</label>
+                <select id="source-sort">
+                  <option value="original">Document order</option>
+                  <option value="title">Title A–Z</option>
+                  <option value="year">Newest first</option>
+                </select>
+              </div>
+              <p id="source-count" class="hint" role="status"></p>
+              <div class="actions">
+                <label class="check"
+                  ><input id="select-sources" type="checkbox" />Select all search results</label
+                >
+                <button id="clear-sources">Clear selection</button>
+              </div>
+              <div class="actions">
+                <button id="save-selected-sources">Save selected to library</button>
+                <button id="save-all-sources">Save all to library</button>
+              </div>
+              <p class="hint">
+                Selections stay selected across pages and searches. To cite, select a position in
+                the document, then click Cite here.
+              </p>
+            </section>
             <div id="sources"></div>
+            <nav id="source-pages" class="actions" aria-label="Reference pages" hidden>
+              <button id="source-prev">Previous</button><span id="source-page"></span
+              ><button id="source-next">Next</button>
+            </nav>
           </div>
           <div id="citations-panel" hidden>
             <p class="hint">
@@ -246,6 +281,6 @@
         ><button id="save-settings" class="primary">Save settings</button>
       </div>
     </dialog>
-    <script type="module" src="./app.js?v=0.6.7"></script>
+    <script type="module" src="./app.js?v=0.6.8"></script>
   </body>
 </html>

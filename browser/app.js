@@ -17,8 +17,12 @@ let worker,
   editing;
 const pending = new Map(),
   library = new LocalLibrary();
+const selectedSources = new Set();
+let sourcePage = 0,
+  sourceDocument;
+const sourcePageSize = 20;
 function makeWorker() {
-  worker = new Worker(new URL('./document-worker.js?v=0.6.7', import.meta.url), { type: 'module' });
+  worker = new Worker(new URL('./document-worker.js?v=0.6.8', import.meta.url), { type: 'module' });
   worker.onmessage = ({ data }) => {
     const p = pending.get(data.id);
     if (!p) return;
@@ -67,6 +71,8 @@ function enabled() {
   $('#redo').disabled = (!state?.redoCount && !wordEditor.changed) || busy;
   $('#lookup').disabled = busy;
   $('#file').disabled = busy;
+  $('#save-selected-sources').disabled = busy || !selectedSources.size;
+  $('#save-all-sources').disabled = busy || !Object.keys(state?.document.sources || {}).length;
   if (state?.document.bibliographyReview) {
     for (const selector of [
       '#style',
@@ -174,6 +180,7 @@ async function saveToLibrary(sources) {
   const commit = async (selected) => {
     const n = library.include(selected);
     drawLibrary();
+    drawSources();
     status(`${n} saved references. ${plan.duplicates} exact duplicates skipped.`);
   };
   if (plan.near.length) reviewEditor(plan, commit, 'the Local library');
@@ -236,6 +243,19 @@ function sourceCard(s, { saved = false } = {}) {
       button('Include in resources', () => includeSavedSource(s)),
     );
   } else {
+    const label = document.createElement('label');
+    label.className = 'check';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.dataset.documentSource = s.id;
+    check.checked = selectedSources.has(s.id);
+    check.setAttribute('aria-label', 'Select ' + s.title);
+    check.onchange = () => {
+      check.checked ? selectedSources.add(s.id) : selectedSources.delete(s.id);
+      updateSourceControls();
+    };
+    label.append(check, document.createTextNode('Select'));
+    actions.append(label);
     actions.append(
       button('Cite here', async () => {
         if (!anchor) throw new Error('Select an insertion point in the manuscript first');
@@ -289,6 +309,91 @@ function drawLibrary() {
     status(e.message, true);
   }
 }
+function filteredSources() {
+  const words = $('#source-search').value.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  const sources = Object.values(state?.document.sources || {}).filter((s) => {
+    const text = sourceSummary(s).toLocaleLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+  if ($('#source-sort').value === 'title') sources.sort((a, b) => a.title.localeCompare(b.title));
+  if ($('#source-sort').value === 'year')
+    sources.sort(
+      (a, b) =>
+        (b.issued?.['date-parts']?.[0]?.[0] || 0) - (a.issued?.['date-parts']?.[0]?.[0] || 0),
+    );
+  return sources;
+}
+function updateSourceControls() {
+  const sources = filteredSources();
+  const total = Object.keys(state?.document.sources || {}).length;
+  const selected = sources.filter((s) => selectedSources.has(s.id)).length;
+  $('#source-count').textContent =
+    `${sources.length} of ${total} references · ${selectedSources.size} selected`;
+  $('#select-sources').checked = sources.length > 0 && selected === sources.length;
+  $('#select-sources').indeterminate = selected > 0 && selected < sources.length;
+  $('#select-sources').disabled = !sources.length;
+  $('#clear-sources').disabled = !selectedSources.size;
+  $('#save-selected-sources').textContent = `Save selected (${selectedSources.size}) to library`;
+  $('#save-all-sources').textContent = `Save all ${total} to library`;
+  enabled();
+}
+function drawSources() {
+  if (sourceDocument !== state?.document.id) {
+    sourceDocument = state?.document.id;
+    selectedSources.clear();
+    sourcePage = 0;
+    $('#source-search').value = '';
+  }
+  for (const id of selectedSources) if (!state?.document.sources[id]) selectedSources.delete(id);
+  $('#source-browser').hidden = !state;
+  const sources = filteredSources();
+  const pages = Math.max(1, Math.ceil(sources.length / sourcePageSize));
+  sourcePage = Math.min(sourcePage, pages - 1);
+  const savedKeys = new Set(library.read().map(exactSourceKey));
+  $('#sources').replaceChildren(
+    ...sources.slice(sourcePage * sourcePageSize, (sourcePage + 1) * sourcePageSize).map((s) => {
+      const card = sourceCard(s);
+      if (savedKeys.has(exactSourceKey(s)))
+        card.append(paragraph('✓ Saved in Local library', 'saved-badge'));
+      return card;
+    }),
+  );
+  if (state && !sources.length)
+    $('#sources').append(
+      paragraph('No matching references. Clear your search or add a reference.'),
+    );
+  $('#source-pages').hidden = !sources.length;
+  $('#source-page').textContent =
+    `${sourcePage * sourcePageSize + 1}–${Math.min((sourcePage + 1) * sourcePageSize, sources.length)} · Page ${sourcePage + 1} of ${pages}`;
+  $('#source-prev').disabled = sourcePage === 0;
+  $('#source-next').disabled = sourcePage === pages - 1;
+  updateSourceControls();
+}
+$('#source-search').oninput = $('#source-sort').onchange = () => {
+  sourcePage = 0;
+  drawSources();
+};
+$('#source-prev').onclick = () => {
+  sourcePage--;
+  drawSources();
+};
+$('#source-next').onclick = () => {
+  sourcePage++;
+  drawSources();
+};
+$('#select-sources').onchange = (event) => {
+  for (const s of filteredSources())
+    event.target.checked ? selectedSources.add(s.id) : selectedSources.delete(s.id);
+  drawSources();
+};
+$('#clear-sources').onclick = () => {
+  selectedSources.clear();
+  drawSources();
+};
+$('#save-selected-sources').onclick = guard(() =>
+  saveToLibrary(Object.values(state.document.sources).filter((s) => selectedSources.has(s.id))),
+);
+$('#save-all-sources').onclick = guard(() => saveToLibrary(Object.values(state.document.sources)));
 function draw() {
   $('#filename').textContent = state?.filename || 'No document open';
   $('#revision').textContent = state
@@ -337,17 +442,13 @@ function draw() {
       );
   }
   wordEditor.show(state?.editor || null);
+  drawSources();
   if (!state) {
     drawLibrary();
     enabled();
     return;
   }
   $('#style').value = review ? 'original' : state.document.style;
-  for (const s of Object.values(state.document.sources)) $('#sources').append(sourceCard(s));
-  if (!Object.keys(state.document.sources).length)
-    $('#sources').append(
-      paragraph('No sources in this document yet. Add a URL or enter one manually.'),
-    );
   for (const c of state.document.citations) {
     const el = document.createElement('article');
     el.className = 'citation';

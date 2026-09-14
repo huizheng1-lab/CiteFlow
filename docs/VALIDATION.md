@@ -75,3 +75,7 @@ Version 0.6.5: completeness checks preserve unmatched and ambiguous bibliography
 Version 0.6.6: Local library exports JSON, RIS, EndNote XML and BibTeX. Twelve focused Node tests passed, including all supported reference types, metadata escaping, Unicode, unique BibTeX keys, RIS newline handling, unchanged storage and empty-library behavior. Three browser library workflows passed, including downloads in all four formats without an open document. A private 123-record RIS library was exported and reimported in each new format with all 123 records retained. No private reference data is included in the repository.
 
 Version 0.6.7: two browser export tests passed. Picker integration was tested with a stub for all four format extensions, active click activation, write/close completion, cancellation, and permission errors. The actual native OS dialog was not automated. Download fallback was verified for all four formats. Library data remains unchanged on cancellation.
+
+## Version 0.6.8 — 2026-09-14
+
+All 13 Chromium browser workflows passed on Windows, including a synthetic 120-reference Mendeley document: 20-item pagination, identifier and author/year searches, selection across pages and searches, selected/all library saving, exact duplicate reuse, saved badges, sorting and clearing selection. Existing citation editing, bibliography preservation and four-format export workflows also passed.

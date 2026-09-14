@@ -277,6 +277,26 @@ aside {
   padding: 18px 0;
   border-bottom: 1px solid #e6e9df;
 }
+#source-browser {
+  margin-top: 20px;
+  padding: 14px;
+  background: #f4f6ef;
+  border-radius: 8px;
+}
+#source-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
+#source-pages {
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.source .saved-badge {
+  color: #315237;
+  font-weight: 600;
+}
 .source h3,
 .citation h3 {
   font-size: 13px;

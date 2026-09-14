@@ -5,6 +5,54 @@ import { createDocx, inspectDocx } from '../../src/docx.js';
 import { mendeleyDocx, citation, paper } from '../fixtures/mendeley.js';
 import { importSources } from '../../src/import-sources.js';
 
+test('large document references support search, paging and bulk library saving', async ({
+  page,
+}) => {
+  const records = Array.from({ length: 120 }, (_, i) => ({
+    ...paper,
+    id: `ref-${i}`,
+    title: `Reference ${String(i).padStart(3, '0')}`,
+    DOI: `10.1234/example${i}`,
+    author: [{ family: `Author${i}` }],
+    issued: { 'date-parts': [[2000 + (i % 25)]] },
+  }));
+  await page.goto('/');
+  await page.locator('#file').setInputFiles({
+    name: 'large.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from(
+      await mendeleyDocx(records.map((s) => citation([{ id: s.id, itemData: s }]))),
+    ),
+  });
+  await expect(page.locator('#source-count')).toHaveText('120 of 120 references · 0 selected');
+  await expect(page.locator('#sources .source')).toHaveCount(20);
+  await page.locator('[data-document-source]').first().check();
+  await page.locator('#source-next').click();
+  await expect(page.locator('#source-page')).toContainText('Page 2 of 6');
+  await page.locator('[data-document-source]').first().check();
+  await page.locator('#source-search').fill('10.1234/example119');
+  await expect(page.locator('#sources .source')).toHaveCount(1);
+  await page.locator('#select-sources').check();
+  await page.locator('#save-selected-sources').click();
+  await expect(page.locator('#status')).toContainText('3 saved references');
+  await expect(page.locator('#sources .saved-badge')).toHaveCount(1);
+  await page.locator('#source-search').fill('no such reference');
+  await expect(page.locator('#sources')).toContainText('No matching references');
+  await page.locator('#save-all-sources').click();
+  await expect(page.locator('#status')).toContainText('120 saved references');
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('citeflow.library.v1')).length),
+  ).toBe(120);
+  await page.locator('#source-search').fill('Author119 2019');
+  await expect(page.locator('#sources .source')).toHaveCount(1);
+  await page.locator('#source-search').fill('');
+  await page.locator('#source-sort').selectOption('title');
+  await expect(page.locator('#sources h3').first()).toHaveText('Reference 000');
+  await expect(page.locator('[data-document-source]').first()).toBeChecked();
+  await page.locator('#clear-sources').click();
+  await expect(page.locator('#save-selected-sources')).toBeDisabled();
+});
+
 test('Local library exports JSON, RIS, EndNote XML and BibTeX downloads without an open document', async ({
   page,
 }) => {
